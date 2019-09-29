@@ -2,10 +2,12 @@
 import numpy as np
 from diffpy.utils.parsers import loadData
 import os
+import re
 from typing import Tuple, List, Union, Iterable
 from matplotlib.pyplot import Figure, Axes
 from matplotlib.lines import Line2D
 from numpy import array
+import matplotlib.pyplot as plt
 
 
 def find(sdir: str, pattern: str) -> List[str]:
@@ -17,13 +19,32 @@ def find(sdir: str, pattern: str) -> List[str]:
     """
     file_paths = []
 
-    from re import match
     for item in os.listdir(sdir):
         path = os.path.join(sdir, item)
-        if os.path.isfile(path) and match(pattern, item) is not None:
+        if os.path.isfile(path) and re.match(pattern, item) is not None:
             file_paths.append(path)
         else:
-            pass
+            continue
+
+    return file_paths
+
+
+def recfind(sdir: str, pattern: str) -> List[str]:
+    """
+    find all files match the pattern recursively starting from the sdir.
+    :param sdir: the source directory to find things.
+    :param pattern: the pattern of the file name.
+    :return: a list of file paths of the matched files.
+    """
+    file_paths = []
+
+    for root, dir_names, file_names in os.walk(sdir):
+        for file_name in file_names:
+            if re.match(pattern, file_name):
+                file_path = os.path.join(root, file_name)
+                file_paths.append(file_path)
+            else:
+                continue
 
     return file_paths
 
@@ -181,42 +202,39 @@ def get_names(files: Iterable) -> List[str]:
 def get_rw(files: Iterable) -> List[str]:
     """
     get Rw from a list of res files.
-    :param files: a list of res file paths.
+    :param files: a list of file paths.
     :return: a list of Rw value in string form.
     """
     rws = []
     for f in files:
-        fres = os.path.splitext(f)[0] + ".res"
-        if os.path.isfile(fres):
-            rw = _get_rw(fres)
-        else:
-            print("{} does not exist".format(fres))
-            rw = ""
+        rw = _get_rw(f)
         rws.append(rw)
     return rws
 
 
-def _get_rw(fres: str) -> str:
+def _get_rw(file_path: str) -> str:
     """
     the function used in get_rw to get Rw value form a res file.
-    :param fres: path to res file.
+    :param file_path: path to res file.
     :return: Rw value in string form.
     """
     rw = ""
-    with open(fres, "r") as f:
+    with open(file_path, "r") as f:
         while True:
             line = f.readline()
             if len(line) == 0:
                 break
             elif "Rw" in line:
-                ws = line.split()
-                if len(ws) == 2:
-                    rw = ws[1]
+                values = re.findall("\d+\.\d+", line)
+                if len(values) == 1:
+                    rw = values[0]
                     break
+                elif len(values) > 1:
+                    raise ValueError(f"more than one float in Rw line in {file_path}")
                 else:
-                    pass
+                    continue
             else:
-                pass
+                continue
     return rw
 
 
@@ -608,7 +626,11 @@ def get_comp(colors):
     return [_get_comp(c) for c in colors]
 
 
-def config_ax(ax, xlim=None, ylim=None, xlabel=None, ylabel=None, minor=2):
+def config_ax(ax=None, xlim=None, ylim=None, xlabel=None, ylabel=None, minor=2):
+    if ax:
+        pass
+    else:
+        ax = plt.gca()
     if xlim:
         ax.set_xlim(xlim[0], xlim[1])
     if ylim:

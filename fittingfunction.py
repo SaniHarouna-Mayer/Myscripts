@@ -224,8 +224,9 @@ def fit(recipe: FitRecipe, **kwargs) -> None:
     _print = kwargs.get("_print", False)
     if _print:
         df = make_df(recipe)
-        print()
+        print("-" * 90)
         print(df.to_string())
+        print("-" * 90)
     else:
         pass
 

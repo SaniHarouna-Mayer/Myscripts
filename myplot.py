@@ -1,10 +1,8 @@
-# coding=utf-8
 import matplotlib.pyplot as plt
-from typing import Tuple
 from helper import *
 
 
-def compare_data(files, rlim=None, names=None, colors=None, normal=False):
+def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, diff=False):
     """
     plot y vs. x as lines for comparison.
     :param files: a list of strings that are paths of the data file.
@@ -13,15 +11,17 @@ def compare_data(files, rlim=None, names=None, colors=None, normal=False):
                   If names is empty list, no names are added, elif names is None, names are file names.
     :param colors: a list of strings that are hex value of rgb color for lines.
     :param normal: a bool variable to turn on and off the normalization. Default is False.
+    :param diff: a bool variable to turn on the difference curve. Default is False.
     :return: a matpotlib figure object.
     """
-    # check arguemnts
     files = check_files(files)
     names = check_names(names, files)
     colors = check_colors(colors, len(files))
     rlim = check_lim(rlim, 2)
+
     # load data
     xs, ys = load_xy(files)
+
     # slice data
     if rlim:
         xs, ys = slice_data(xs, ys, rlim)
@@ -37,6 +37,13 @@ def compare_data(files, rlim=None, names=None, colors=None, normal=False):
     ax = fig.add_subplot(111)
     # plot
     lines = add_solidlines(ax, xs, ys)
+    # difference
+    if diff:
+        assert len(files) == 2, f"diff is only valid for two files but input is {len(files)} files"
+        xdiffs = [xs[0]]
+        ydiffs = [ys[1] - ys[0]]
+        offset_fgr(ys, ys, ydiffs)
+        _ = add_solidlines(ax, xdiffs, ydiffs)
     # colors
     if colors is not None:
         paint_color(lines, colors)
@@ -292,6 +299,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     rlim = check_lim(rlim, 2)
     names = check_names(names, files)
     colors = check_colors(colors, len(files))
+
     # check kwargs
     options = ["spacing", "apos", "auto_rw", "rwpos", "rws"]
     check_kwargs(kwargs, options)
@@ -300,6 +308,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     auto_rw = kwargs.get("auto_rw", False)
     rwpos = kwargs.get("rwpos", "\n")
     rws = kwargs.get("rws", None)
+
     # get rw
     if auto_rw:
         rws_from_file = get_rw(files)
@@ -308,8 +317,19 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
         names = attach_rw(names, rws, rwpos)
     else:
         pass
+
     # load data
     rs, gcalcs, gs, gdiffs = load_fgr(files)
+
+    # slice data
+    if rlim:
+        for n, (r, gcalc, g, gdiff) in enumerate(zip(rs, gcalcs, gs, gdiffs)):
+            mask = np.logical_and(r >= rlim[0], r <= rlim[1])
+            rs[n] = r[mask]
+            gs[n] = g[mask]
+            gcalcs[n] = gcalc[mask]
+            gdiffs[n] = gdiff[mask]
+
     # normal
     if normal:
         normalize_fgr(gs, gcalcs, gdiffs)
@@ -317,13 +337,17 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
         pass
     # offset gdiffs
     gzeros = offset_fgr(gs, gcalcs, gdiffs, spacing)
+
     # shift and record zeros
     shift_fgr(gs, gcalcs, gdiffs, gzeros, spacing)
+
     # initiate figure
     fig = plt.figure()
     ax = fig.add_subplot(111)
+
     # initiate lines
     ldatas, lcalcs, ldiffs, lzeros = add_fgrlines(ax, rs, gs, gcalcs, gdiffs, gzeros)
+
     # add annotations
     if apos is None:
         pass
@@ -334,6 +358,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
             pass
         else:
             paint_color(anns, colors)
+
     # set names and colors
     if colors is None:
         pass
@@ -342,6 +367,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
         comp_colors = get_comp(colors)
         paint_color(lcalcs, comp_colors)
         paint_color(ldiffs, colors)
+
     # configure axes
     config_ax(ax, rlim, None, r"r ($\AA$)", r"G ($\AA^{-2}$)")
     return fig
@@ -373,6 +399,7 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
     rlim = check_lim(rlim, 2)
     names = check_names(names, files)
     colors = check_colors(colors, len(files))
+
     # get kwargs
     options = ["spacing", "apos", "auto_rw", "rwpos", "rws"]
     check_kwargs(kwargs, options)
@@ -381,6 +408,7 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
     auto_rw = kwargs.get("auto_rw", False)
     rwpos = kwargs.get("rwpos", "\n")
     rws = kwargs.get("rws", None)
+
     # get rw
     if auto_rw:
         rws_from_file = get_rw(files)
@@ -389,24 +417,40 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
         names = attach_rw(names, rws, rwpos)
     else:
         pass
+
     # load data
     rs, gcalcs, gs, gdiffs = load_fgr(files)
+
+    # slice data
+    if rlim:
+        for n, (r, gcalc, g, gdiff) in enumerate(zip(rs, gcalcs, gs, gdiffs)):
+            mask = np.logical_and(r >= rlim[0], r <= rlim[1])
+            rs[n] = r[mask]
+            gs[n] = g[mask]
+            gcalcs[n] = gcalc[mask]
+            gdiffs[n] = gdiff[mask]
+
     # normal
     if normal:
         normalize_fgr(gs, gcalcs, gdiffs)
     else:
         pass
+
     # offset gdiffs
     gzeros = offset_fgr(gs, gcalcs, gdiffs, spacing)
+
     # initiate figure
     fig = plt.figure()
     rct = (.1, .1, .8, .8)
     axs = add_axes(fig, rct, len(files))
+
     # initiate lines
     ldatas, lcalcs, ldiffs, lzeros = add_fgrlines(axs, rs, gs, gcalcs, gdiffs, gzeros)
+
     # add annotations
     poss = calc_eachposs(rs, gs, apos)
     anns = annotate_plots(axs, names, poss)
+
     # set names and colors
     if colors is not None:
         paint_color(anns, colors)
@@ -416,8 +460,10 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
         paint_color(ldiffs, colors)
     else:
         pass
+
     # configure axes
     config_axes(axs, rlim, r"r ($\AA$)", r"G ($\AA^{-2}$)")
+
     return fig
 
 
