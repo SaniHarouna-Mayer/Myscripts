@@ -286,12 +286,13 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     :param normal: a bool variable to turn on and off the normalization for data. It makes data line to peak at 1.0
                    while fitted and differene lines are scaled by same ratio.
     :param kwargs: kwargs for parameters in plotting to make figure beautiful. They are
-        spacing: a float that is the spacing of data-difference and difference-data in data value.
+        res_scale: (float) scale factor for residuals. If None, no scaling. Default None
+        spacing: (float) the spacing of data-difference and difference-data in data value.
                  Default is 0.
-        apos: a tuple of two floats that are position of annotation in data frame.
+        apos: (Tuple[float, float])position of annotation in data frame.
               Default is (.85. 50)
-        auto_rw: a bool to choose if the rw is automatically read and added to the annotation. Default is False.
-        rwpos: a string to choose how rw is attached to the names. Default is "\n".
+        auto_rw: (bool) choose if the rw is automatically read and added to the annotation. Default is False.
+        rwpos: (string) choose how rw is attached to the names. Default is "\n".
     :return: a matpotlib figure object.
     """
     # check args
@@ -301,13 +302,14 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     colors = check_colors(colors, len(files))
 
     # check kwargs
-    options = ["spacing", "apos", "auto_rw", "rwpos", "rws"]
+    options = ["spacing", "apos", "auto_rw", "rwpos", "rws", "res_scale"]
     check_kwargs(kwargs, options)
     spacing = kwargs.get("spacing", 0.)
     apos = kwargs.get("apos", (.85, .50))
     auto_rw = kwargs.get("auto_rw", False)
     rwpos = kwargs.get("rwpos", "\n")
     rws = kwargs.get("rws", None)
+    res_scale = kwargs.get("res_scale", None)
 
     # get rw
     if auto_rw:
@@ -320,6 +322,8 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
 
     # load data
     rs, gcalcs, gs, gdiffs = load_fgr(files)
+    if res_scale:
+        gdiffs = [gdiff * res_scale for gdiff in gdiffs]
 
     # slice data
     if rlim:
@@ -342,8 +346,8 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     shift_fgr(gs, gcalcs, gdiffs, gzeros, spacing)
 
     # initiate figure
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    fig = plt.gcf()
+    ax = plt.gca()
 
     # initiate lines
     ldatas, lcalcs, ldiffs, lzeros = add_fgrlines(ax, rs, gs, gcalcs, gdiffs, gzeros)
@@ -388,7 +392,7 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
             spacing: a float that is the spacing of data-difference and difference-data in data value.
                      Default is 0.
             apos: a tuple of two floats that are position of annotation in data frame.
-                  Default is (.85, .50)
+                  Default is (.7, .3)
             rws: a list of Rw for each fitting. it only works when auto_rw = False. Defulat None.
             auto_rw: a bool to choose if the rw is automatically read and added to the annotation. Default is False.
             rwpos: a string to choose how rw is attached to the names. Default is "\n".
@@ -404,7 +408,7 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
     options = ["spacing", "apos", "auto_rw", "rwpos", "rws"]
     check_kwargs(kwargs, options)
     spacing = kwargs.get("spacing", 0.)
-    apos = kwargs.get("apos", (.85, .50))
+    apos = kwargs.get("apos", (.7, .3))
     auto_rw = kwargs.get("auto_rw", False)
     rwpos = kwargs.get("rwpos", "\n")
     rws = kwargs.get("rws", None)
