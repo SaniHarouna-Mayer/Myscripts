@@ -1,0 +1,16 @@
+README.md
+setup.py
+myscripts/__init__.py
+myscripts/experiment.py
+myscripts/fittingclass.py
+myscripts/fittingfunction.py
+myscripts/helper.py
+myscripts/linfit.py
+myscripts/myint.py
+myscripts/myplot.py
+myscripts/wlcalib.py
+myscripts/yamlmaker.py
+myscripts_st.egg-info/PKG-INFO
+myscripts_st.egg-info/SOURCES.txt
+myscripts_st.egg-info/dependency_links.txt
+myscripts_st.egg-info/top_level.txt

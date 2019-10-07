@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: myscripts-st
+Version: 0.1
+Summary: My frequently used scripts in PDF analysis
+Home-page: https://github.com/st3107/Myscripts
+Author: Songsheng Tao
+Author-email: songshengtao1@gmail.com
+License: UNKNOWN
+Description: # Myscripts
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
