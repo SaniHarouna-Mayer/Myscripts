@@ -1,9 +1,9 @@
 from diffpy.pdfgetx import loaddata, PDFGetter, PDFConfig
-from myint import xpdtools_int
-from fittingfunction import *
-from fittingclass import *
-from yamlmaker import load
-from helper import recfind
+from myscripts.myint import xpdtools_int
+from myscripts.fittingfunction import *
+from myscripts.fittingclass import *
+from myscripts.yamlmaker import load
+from myscripts.helper import recfind
 
 
 def calib_wl(tiff_file: str,

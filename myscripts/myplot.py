@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from helper import *
+from myscripts.helper import *
 
 
 def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, diff=False):

@@ -5,7 +5,7 @@ from diffpy.structure import loadStructure
 from diffpy.srfit.pdf import PDFGenerator, DebyePDFGenerator, PDFParser
 from diffpy.srfit.fitbase import Profile, FitContribution, FitRecipe, FitResults
 from diffpy.utils.parsers.loaddata import loadData
-from fittingclass import *
+from myscripts.fittingclass import *
 from typing import Tuple
 import os
 from diffpy.srfit.structure.sgconstraints import constrainAsSpaceGroup

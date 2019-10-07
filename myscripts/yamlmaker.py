@@ -1,6 +1,6 @@
 import os
 import re
-from helper import recfind
+from myscripts.helper import recfind
 import yaml
 from typing import List
 
