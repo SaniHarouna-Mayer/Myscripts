@@ -8,6 +8,7 @@ from matplotlib.pyplot import Figure, Axes
 from matplotlib.lines import Line2D
 from numpy import array
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def find(sdir: str, pattern: str) -> List[str]:
@@ -225,7 +226,7 @@ def _get_rw(file_path: str) -> str:
             if len(line) == 0:
                 break
             elif "Rw" in line:
-                values = re.findall("\d+\.\d+", line)
+                values = re.findall(r"\d+\.\d+", line)
                 if len(values) == 1:
                     rw = values[0]
                     break
@@ -698,3 +699,61 @@ def label_panel(ax, text, fpos):
     ya = (1 - fy) * ymin + fy * ymax
     ax.annotate(text, xy=(xa, ya))
     pass
+
+
+# function to save figures
+def set_savefig(func, **settings):
+    """set kwargs for savefig to make it easy to use."""
+    def _savefig(filename, **kwargs):
+        return savefig(filename, **settings, **kwargs)
+    return _savefig
+
+
+def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=True):
+    """save current figure and print out the latex text of loading figure."""
+    if fig:
+        pass
+    else:
+        fig = plt.gcf()
+
+    filename_with_ext = f"{filename}.{fmt}"
+    filepath = os.path.join(savedir, filename_with_ext)
+    plt.style.use("/Users/sst/billinge.mplstyle")
+    fig.savefig(filepath, format=fmt)
+    plt.style.use("/Users/sst/visual.mplstyle")
+
+    if print_tex:
+        caption = "{" + caption + "}"
+        label = "{" + "fig:" + filename + "}"
+        file_in_tex = "{" + filename_with_ext + "}"
+        tex = "\\begin{figure}[htb]\n" + \
+              f"\\includegraphics[width=\\columnwidth]{file_in_tex}\n" + \
+              f"\\caption{caption}\n" + \
+              f"\\label{label}\n" + \
+              "\\end{figure}"
+        print(tex)
+
+    return
+
+
+# functions to print tables
+def to_latex(df: pd.DataFrame, label="", caption="", **kwargs):
+    """Convert pandas DataFrame to latex and print it out. kwargs will be passed to df.to_latex()."""
+    tabular_str = df.to_latex(**kwargs)
+
+    str_map = {r"\toprule": r"\hline\hline",
+               r"\midrule": r"\hline",
+               r"\bottomrule": r"\hline\hline"}
+    for old, new in str_map.items():
+        tabular_str = tabular_str.replace(old, new)
+
+    label = "{" + "tab:" + label + "}"
+    caption = "{" + caption + "}"
+    table_str = "\\begin{table}[htb]\n" + \
+                f"\\caption{caption}\n" + \
+                f"\\label{label}\n" +\
+                tabular_str +\
+                "\\end{table}"
+
+    print(table_str)
+    return

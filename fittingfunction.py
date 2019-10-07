@@ -193,8 +193,8 @@ def make_df(recipe: FitRecipe, name: str = "") -> pd.DataFrame:
     """
     df = pd.DataFrame()
     res = FitResults(recipe)
-    df[name] = [res.rw, res.chi2, res.rchi2] + list(recipe.getValues())
-    df.index = ["Rw", "chi2", "rchi2"] + recipe.getNames()
+    df[name] = [res.rw, res.chi2/2] + list(recipe.getValues())
+    df.index = ["Rw", "half_chi2"] + recipe.getNames()
     return df
 
 
