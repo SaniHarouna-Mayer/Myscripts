@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 from myscripts.helper import *
 
 
@@ -389,6 +388,7 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
         :param normal: a bool variable to turn on and off the normalization for data. It makes data line to peak at 1.0
                        while fitted and differene lines are scaled by same ratio.
         :param kwargs: kwargs for parameters in plotting. They are
+            res_scale: (float) scale factor for residuals. If None, no scaling. Default None
             spacing: a float that is the spacing of data-difference and difference-data in data value.
                      Default is 0.
             apos: a tuple of two floats that are position of annotation in data frame.
@@ -403,9 +403,10 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
     rlim = check_lim(rlim, 2)
     names = check_names(names, files)
     colors = check_colors(colors, len(files))
+    res_scale = kwargs.get("res_scale", None)
 
     # get kwargs
-    options = ["spacing", "apos", "auto_rw", "rwpos", "rws"]
+    options = ["spacing", "apos", "auto_rw", "rwpos", "rws", "res_scale"]
     check_kwargs(kwargs, options)
     spacing = kwargs.get("spacing", 0.)
     apos = kwargs.get("apos", (.7, .3))
@@ -424,6 +425,10 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
 
     # load data
     rs, gcalcs, gs, gdiffs = load_fgr(files)
+
+    # scale residuals
+    if res_scale:
+        gdiffs = [gdiff * res_scale for gdiff in gdiffs]
 
     # slice data
     if rlim:

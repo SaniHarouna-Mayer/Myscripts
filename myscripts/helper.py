@@ -705,16 +705,13 @@ def label_panel(ax, text, fpos):
 def set_savefig(func, **settings):
     """set kwargs for savefig to make it easy to use."""
     def _savefig(filename, **kwargs):
-        return savefig(filename, **settings, **kwargs)
+        return func(filename, **settings, **kwargs)
     return _savefig
 
 
 def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=True):
     """save current figure and print out the latex text of loading figure."""
-    if fig:
-        pass
-    else:
-        fig = plt.gcf()
+    fig = fig if fig else plt.gcf()
 
     filename_with_ext = f"{filename}.{fmt}"
     filepath = os.path.join(savedir, filename_with_ext)
@@ -738,7 +735,10 @@ def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=Tr
 
 # functions to print tables
 def to_latex(df: pd.DataFrame, label="", caption="", **kwargs):
-    """Convert pandas DataFrame to latex and print it out. kwargs will be passed to df.to_latex()."""
+    """
+    Convert pandas DataFrame to latex and print it out. kwargs will be passed to df.to_latex. Default, 'escape=False'.
+    """
+    kwargs["escape"] = kwargs["escape"] if "escape" in kwargs.keys() else False 
     tabular_str = df.to_latex(**kwargs)
 
     str_map = {r"\toprule": r"\hline\hline",
