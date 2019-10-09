@@ -703,21 +703,45 @@ def label_panel(ax, text, fpos):
 
 # function to save figures
 def set_savefig(func, **settings):
-    """set kwargs for savefig to make it easy to use."""
+    """set kwargs for savefig and return a new function. See helper.savefig for what kwargs can be passed."""
     def _savefig(filename, **kwargs):
         return func(filename, **settings, **kwargs)
     return _savefig
 
 
-def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=True):
-    """save current figure and print out the latex text of loading figure."""
+def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=True, style=None):
+    """
+    Save current figure and print out the latex text of loading figure.
+
+    Parameters
+    ----------
+    filename
+        name of the file without extension.
+    caption
+        caption to print in latex.
+    fig
+        figure to save. If None, get current figure.
+    savedir
+        directory to save the figure
+    fmt
+        format of the figure. It will also be the extension.
+    print_tex
+        choose to print latex or not.
+    style
+        matplotlib style to use.
+
+    Returns
+    -------
+        None.
+    """
     fig = fig if fig else plt.gcf()
 
     filename_with_ext = f"{filename}.{fmt}"
     filepath = os.path.join(savedir, filename_with_ext)
-    plt.style.use("/Users/sst/billinge.mplstyle")
-    fig.savefig(filepath, format=fmt)
-    plt.style.use("/Users/sst/visual.mplstyle")
+
+    style = style if style else "/Users/sst/billinge.mplstyle"
+    with plt.style.context(style):
+        fig.savefig(filepath, format=fmt)
 
     if print_tex:
         caption = "{" + caption + "}"
