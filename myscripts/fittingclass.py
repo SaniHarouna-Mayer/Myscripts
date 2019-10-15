@@ -43,10 +43,11 @@ class Phase:
         :param name: name of the phase, also generator name in Fitrecipe.
         :param stru_file: file name of the structure file.
         :param kwargs: (Optional) keyword arguments to pass to the build_generator functions.
-               periodic: (bool) if the structure if periodic. Default auto choose according to extension.
-               debye: (bool) use DebyePDFGenerator or PDFGenerator. Default auto choose according to extension.
-               qmin: (float) qmin for the generator. Default 0. for PDFGenerator and 1. for DebyePDFGenerator.
-               qmax: (float) qmax for the generator. Default read value from data file when making recipe.
+               periodic: (bool) if the structure if periodic. Default auto choose according to extension
+               debye: (bool) use DebyePDFGenerator or PDFGenerator. Default auto choose according to extension
+               qmin: (float) qmin for the generator. Default 0. for PDFGenerator and 1. for DebyePDFGenerator
+               qmax: (float) qmax for the generator. Default read value from data file when making recipe
+               ncpu: (int) number of parallel computing cores for the generator. If None, no parallel. Default None
         """
         self.name = name
         self.stru_file = stru_file
@@ -55,6 +56,7 @@ class Phase:
         self.debye = kwargs.get("debye", not self.periodic)
         self.qmin = kwargs.get("qmin", None)
         self.qmax = kwargs.get("qmax", None)
+        self.ncpu = kwargs.get("ncpu", None)
 
     @staticmethod
     def is_periodic(stru_file: str):
@@ -83,7 +85,7 @@ class Phase:
         check if the keyword argument is known.
         :return:
         """
-        known_keywords = ["periodic", "debye", "qmin", "qmax"]
+        known_keywords = ["periodic", "debye", "qmin", "qmax", "ncpu"]
         for key in kwargs:
             assert key in known_keywords, f"Unknown keyword: {key}"
         return

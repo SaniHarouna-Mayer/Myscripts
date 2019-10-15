@@ -9,9 +9,16 @@ from myscripts.fittingclass import *
 from typing import Tuple
 import os
 from diffpy.srfit.structure.sgconstraints import constrainAsSpaceGroup
-import diffpy.srfit.pdf.characteristicfunctions as F
+import diffpy.srfit.pdf.characteristicfunctions as characteristicfunctions
+import multiprocessing
 
 
+# abbreviate some useful modules and functions
+F = characteristicfunctions
+constrainAsSpaceGroup = constrainAsSpaceGroup
+
+
+# functions used in fitting
 def make_profile(data_file: str, fit_range: Tuple[float, float, float]) -> Profile:
     """
     build profile for contribution.
@@ -40,6 +47,7 @@ def make_generator(phase: Phase) -> Union[PDFGenerator, DebyePDFGenerator]:
     """
     name = phase.name
     stru = loadStructure(phase.stru_file)
+    ncpu = phase.ncpu
 
     if phase.debye:
         generator = DebyePDFGenerator(name)
@@ -47,6 +55,12 @@ def make_generator(phase: Phase) -> Union[PDFGenerator, DebyePDFGenerator]:
         generator = PDFGenerator(name)
 
     generator.setStructure(stru, periodic=phase.periodic)
+
+    if ncpu:
+        pool = multiprocessing.Pool(ncpu)
+        generator.parallel(ncpu, mapfunc=pool.imap_unordered)
+    else:
+        pass
 
     return generator
 
