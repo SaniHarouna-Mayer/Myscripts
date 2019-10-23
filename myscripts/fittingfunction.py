@@ -17,6 +17,9 @@ from myscripts.fittingclass import GenConfig, ConConfig, MyRecipe
 from deprecated import deprecated
 
 
+__all__ = ["make_profile", "make_generator", "make", "fit", "save_all", "save", "updated", "F", "constrainAsSpaceGroup"]
+
+
 # abbreviate some useful modules and functions
 F = characteristicfunctions
 constrainAsSpaceGroup = constrainAsSpaceGroup
@@ -75,65 +78,16 @@ def make_contribution(config: ConConfig) -> FitContribution:
     :param config: Model object.
     :return:
     """
-    def read_qrange(_data_file: str):
-        _qmin, _qmax = None, None
-        with open(_data_file, "r") as f:
-            while True:
-                line = f.readline()
-                value_found = _qmin is not None and _qmax is not None
-                end_of_file = len(line) == 0
-                if value_found or end_of_file:
-                    break
-                elif "qmin = " in line:
-                    _qmin = float(line.split()[2])
-                elif "qmax = " in line:
-                    _qmax = float(line.split()[2])
-                else:
-                    pass
-        if value_found:
-            pass
-        else:
-            message = "values of qmin and qmax are not found:" + \
-                      f"qmin:{_qmin}; qmax{_qmax}"
-            raise Exception(message)
-        return _qmin, _qmax
-
-    def choose_qmin(gen: Union[DebyePDFGenerator, PDFGenerator]):
-        if isinstance(gen, DebyePDFGenerator):
-            _qmin = 1.
-        elif isinstance(gen, PDFGenerator):
-            _qmin = 0.
-        else:
-            raise Exception(f"Unknown generator {type(generator)}.")
-        return _qmin
-
-    def set_qmin_qmax(_generator):
-        if phase.qmin is None:
-            qmin = choose_qmin(_generator)
-        else:
-            qmin = phase.qmin
-
-        if phase.qmax is None:
-            qmax = qmax_from_data
-        else:
-            qmax = phase.qmax
-
-        _generator.setQmin(qmin)
-        _generator.setQmax(qmax)
-        return
-
     contribution = FitContribution(config.name)
 
     fit_range = config.fit_range
     profile = make_profile(config.data_file, fit_range)
     contribution.setProfile(profile, xname="r")
 
-    _, qmax_from_data = read_qrange(config.data_file)
     for phase in config.phases:
         generator = make_generator(phase)
         generator.qdamp.value = config.qparams[0]
         generator.qbroad.value = config.qparams[1]
-        set_qmin_qmax(generator)
         contribution.addProfileGenerator(generator)
 
     for base_line in config.base_lines:
