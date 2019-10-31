@@ -709,7 +709,7 @@ def set_savefig(func, **settings):
     return _savefig
 
 
-def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=True, style=None):
+def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=True):
     """
     Save current figure and print out the latex text of loading figure.
 
@@ -727,8 +727,6 @@ def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=Tr
         format of the figure. It will also be the extension.
     print_tex
         choose to print latex or not.
-    style
-        matplotlib style to use.
 
     Returns
     -------
@@ -739,9 +737,7 @@ def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=Tr
     filename_with_ext = f"{filename}.{fmt}"
     filepath = os.path.join(savedir, filename_with_ext)
 
-    style = style if style else "/Users/sst/billinge.mplstyle"
-    with plt.style.context(style):
-        fig.savefig(filepath, format=fmt)
+    fig.savefig(filepath, format=fmt)
 
     if print_tex:
         caption = "{" + caption + "}"
