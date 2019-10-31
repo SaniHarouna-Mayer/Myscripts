@@ -1,9 +1,16 @@
+import os
+import matplotlib.pyplot as plt
+from diffpy.srfit.pdf import PDFGenerator
+from diffpy.srfit.fitbase import FitContribution, FitResults
 from diffpy.pdfgetx import loaddata, PDFGetter, PDFConfig
 from myscripts.myint import xpdtools_int
 from myscripts.fittingfunction import *
 from myscripts.fittingclass import *
 from myscripts.yamlmaker import load
 from myscripts.helper import recfind
+from typing import Callable, List, Tuple
+
+__all__ = ["calib_wl", "run_pipe"]
 
 
 def calib_wl(tiff_file: str,
@@ -84,21 +91,15 @@ def run_pipe(tiff_file: str,
             _poni_file = files_found[0]
         return _poni_file
 
-    if poni_file:
-        pass
-    else:
-        poni_file = find_poni(saving_dir)
+    poni_file = poni_file if poni_file else find_poni(saving_dir)
 
     wl = load(poni_file)["Wavelength"] * 1e10  # unit A
     result = dict(poni=poni_file, wl=wl)
     print(f"Run pipeline with wavelength: {wl:.4f} and poni file: {poni_file}")
 
-    result["chi"], _ = xpdtools_int(poni_file, tiff_file, chi_dir=saving_dir)
+    result["chi"], _ = xpdtools_int(poni_file, tiff_file, chi_dir=saving_dir, alpha=2.0)
 
-    if pdfgetter:
-        pass
-    else:
-        pdfgetter = make_default_pdfgetter()
+    pdfgetter = pdfgetter if pdfgetter else make_default_pdfgetter()
 
     chi_q, chi_i = loaddata(result["chi"]).T
     pdfgetter(chi_q, chi_i)
@@ -135,7 +136,7 @@ def make_default_pdfgetter() -> PDFGetter:
     return pdfgetter
 
 
-def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
+def default_refine(gr_file: str, res_dir: str, stru_file: str = None) -> Tuple[float, str, str]:
     """
     Refine the G(r) using a default recipe for Ni.
     Parameters
@@ -144,7 +145,9 @@ def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
         Path to the gr file.
     res_dir
         Directory to save csv and fgr file.
-
+    stru_file
+        User defined structure file. If None, the default file will be used:
+        "/Users/sst/project/cal_and_int/Ni.cif"
     Returns
     -------
     rw
@@ -155,11 +158,13 @@ def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
         Path to fitted data fgr file.
     """
     file_name_base = os.path.splitext(os.path.basename(gr_file))[0]
-    print(f"Refine {file_name_base}...")
+    print(f"Refine {file_name_base}, please wait ...")
 
-    ni = Phase("Ni", "Ni.cif")
-    config_ni = Model(name="one_phase", data_file=gr_file, fit_range=(1., 60., .01), eq="Ni", phases=ni,
-                      qparams=(0.04, 0.02))
+    default_stru_file = "/Users/sst/project/cal_and_int/Ni.cif"
+    stru_file = stru_file if stru_file else default_stru_file
+    ni = GenConfig("Ni", stru_file, ncpu=4)
+    config_ni = ConConfig(name="one_phase", data_file=gr_file, fit_range=(1., 60., .01), eq="Ni", phases=ni,
+                          qparams=(0.04, 0.02))
     recipe = make(config_ni)
 
     con: FitContribution = recipe.one_phase
@@ -188,8 +193,9 @@ def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
     fit(recipe, verbose=0)
 
     rw = float(FitResults(recipe).rw)
-    saving_path = os.path.join(res_dir, file_name_base)
-    csv_file, fgr_file = save(recipe, "one_phase", saving_path)
+    save_all(recipe, res_dir, file_name_base)
+    csv_file = recipe.csv_df.loc[0, 'file']
+    fgr_file = recipe.fgr_df.loc[0, 'file']
 
     plot(recipe.one_phase)
     plt.title(f"Ni fitting (Rw = {rw:.3f})")

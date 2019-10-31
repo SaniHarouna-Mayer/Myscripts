@@ -17,7 +17,8 @@ from myscripts.fittingclass import GenConfig, ConConfig, MyRecipe
 from deprecated import deprecated
 
 
-__all__ = ["make_profile", "make_generator", "make", "fit", "save_all", "save", "updated", "F", "constrainAsSpaceGroup"]
+__all__ = ["make_profile", "make_generator", "make", "fit", "save_all", "save", "updated", "F", "plot",
+           "constrainAsSpaceGroup"]
 
 
 # abbreviate some useful modules and functions
@@ -334,6 +335,7 @@ def save_cif(generator: Union[PDFGenerator, DebyePDFGenerator], base_name: str, 
 def save_all(recipe: MyRecipe, folder: str, name: str, info: dict = None) -> str:
     """
     Save fitting results, fitted PDFs and refined structures to files in one folder and save information in DataFrames.
+    The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in info.
     Parameters
     ----------
     recipe
@@ -343,7 +345,7 @@ def save_all(recipe: MyRecipe, folder: str, name: str, info: dict = None) -> str
     folder
         Folder to save the files.
     info
-        information to update in DataFame. Each key will be column and value will be the content of the cell.
+        information to update in DataFame. Each key will be column and each value will be the content of the cell.
     Returns
     -------
         string of Uid.
@@ -351,6 +353,8 @@ def save_all(recipe: MyRecipe, folder: str, name: str, info: dict = None) -> str
     uid = str(uuid4())[:4]
     name += f"_{uid}"
     name = os.path.join(folder, name)
+
+    info = info if info else {}
 
     csv_file = save_csv(recipe, name)
     csv_info = dict(file=csv_file, **info)
@@ -360,7 +364,7 @@ def save_all(recipe: MyRecipe, folder: str, name: str, info: dict = None) -> str
         con = getattr(recipe, config.name)
         fgr_file = save_fgr(con, base_name=name, rw=recipe.res.rw)
         fgr_info = dict(file=fgr_file, rw=recipe.res.rw, **info)
-        recipe.fgr_df =recipe.fgr_df.append(fgr_info, ignore_index=True)
+        recipe.fgr_df = recipe.fgr_df.append(fgr_info, ignore_index=True)
 
         for gconfig in config.phases:
             gen = getattr(con, gconfig.name)
