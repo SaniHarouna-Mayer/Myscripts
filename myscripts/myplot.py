@@ -1,6 +1,9 @@
 from myscripts.helper import *
 
 
+__all__ = ['compare_data', 'compare_panel', 'plot_gr', 'plot_fgr', 'plot_axfgr']
+
+
 def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, diff=False):
     """
     plot y vs. x as lines for comparison.
@@ -139,7 +142,7 @@ def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     :param kwargs: kwargs for plot settings. They are
            style: a string to choose plotting curve style. It can be "o" for empty circle and "-" for solid lines.
                   Default is "-".
-           apos: a tuple of two floats as fractional posistion of annotation in data frame. Default is (.8, .5).
+           apos: a tuple of two floats as fractional posistion of annotation in data frame. Default is (.7, .3).
     :return: a matpotlib figure object.
     """
     files = check_files(files)
@@ -147,7 +150,7 @@ def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     names = check_names(names, files)
     colors = check_colors(colors, len(files))
     style = kwargs.get("style", "-")
-    apos = kwargs.get("apos", (.8, .5))
+    apos = kwargs.get("apos", (.7, .3))
 
     rs, gs = load_gr(files)
 
@@ -289,7 +292,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
         spacing: (float) the spacing of data-difference and difference-data in data value.
                  Default is 0.
         apos: (Tuple[float, float])position of annotation in data frame.
-              Default is (.85. 50)
+              Default is (.7 .3)
         auto_rw: (bool) choose if the rw is automatically read and added to the annotation. Default is False.
         rwpos: (string) choose how rw is attached to the names. Default is "\n".
     :return: a matpotlib figure object.
@@ -304,7 +307,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     options = ["spacing", "apos", "auto_rw", "rwpos", "rws", "res_scale"]
     check_kwargs(kwargs, options)
     spacing = kwargs.get("spacing", 0.)
-    apos = kwargs.get("apos", (.85, .50))
+    apos = kwargs.get("apos", (.7, .3))
     auto_rw = kwargs.get("auto_rw", False)
     rwpos = kwargs.get("rwpos", "\n")
     rws = kwargs.get("rws", None)

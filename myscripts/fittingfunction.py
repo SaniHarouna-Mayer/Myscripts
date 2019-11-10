@@ -17,8 +17,8 @@ from myscripts.fittingclass import GenConfig, ConConfig, MyRecipe
 from deprecated import deprecated
 
 
-__all__ = ["make_profile", "make_generator", "make", "fit", "save_all", "save", "updated", "F", "plot",
-           "constrainAsSpaceGroup"]
+__all__ = ["make_profile", "make_generator", "make", "fit", "gen_save_all", "save", "F", "plot",
+           "constrainAsSpaceGroup", "calc"]
 
 
 # abbreviate some useful modules and functions
@@ -106,22 +106,24 @@ def make_contribution(config: ConConfig) -> FitContribution:
     return contribution
 
 
-def make(*configs: ConConfig, weights: List[float] = None) -> MyRecipe:
+def make(*configs: ConConfig, name: str = None, weights: List[float] = None) -> MyRecipe:
     """
     make recipe based on models.
-    :param configs: arbitrary number of model objects. each model make one contribution in recipe.
+    :param configs: arbitrary number of ConConfig. Each config make one contribution in recipe.
+    :param name: name of the recipe. If None, use "unnamed".
     :param weights: list of weights for each contribution. if None, weight will be 1. / len(models).
     :return: fit recipe.
     """
-    recipe = MyRecipe(*configs)
+    name = name if name else "unnamed"
+    recipe = MyRecipe(configs=configs, name=name)
     if weights is None:
         weights = [1. / len(configs)] * len(configs)
     else:
         msg = f"models and weights doe not have same length: {len(configs)}, {len(weights)}."
         assert len(configs) == len(weights), msg
 
-    for model, weight in zip(configs, weights):
-        contribution = make_contribution(model)
+    for config, weight in zip(configs, weights):
+        contribution = make_contribution(config)
         recipe.addContribution(contribution, weight)
 
     recipe.fithooks[0].verbose = 0
@@ -182,7 +184,7 @@ def fit(recipe: MyRecipe, **kwargs) -> None:
                    xtol, gtol, ftol: tolerance in least squares. Default 1.E-4, 1.E-4, 1.E-4
                    max_nfev: maximum number of evaluation of residual function. Default None
                    _print: whether to print the data. Default False
-    :return:
+    :return: None.
     """
     values = kwargs.get("values", recipe.values)
     bounds = kwargs.get("bounds", recipe.getBounds2())
@@ -197,9 +199,11 @@ def fit(recipe: MyRecipe, **kwargs) -> None:
     _print = kwargs.get("_print", False)
     if _print:
         df = _make_df(recipe)
+        print(f"Fitting Results of {recipe.name}")
         print("-" * 90)
         print(df.to_string())
         print("-" * 90)
+        print("\n")
     else:
         pass
 
@@ -227,7 +231,7 @@ def plot(contribution: FitContribution, ax: plt.Axes = None) -> None:
         ax: plt.Axes = fig.add_subplot(111)
     else:
         pass
-    ax.plot(r, g, 'bo', label="Data")
+    ax.plot(r, g, 'bo', mfc="None", label="Data")
     ax.plot(r, gcalc, 'r-', label="Fit")
     ax.plot(r, diff, 'g-', label="Difference")
     ax.plot(r, diffzero, 'k-')
@@ -332,7 +336,55 @@ def save_cif(generator: Union[PDFGenerator, DebyePDFGenerator], base_name: str, 
     return stru_file
 
 
-def save_all(recipe: MyRecipe, folder: str, name: str, info: dict = None) -> str:
+def gen_save_all(folder: str, csv: str = None, fgr: str = None, cif: str = None):
+    """
+    Generate the function save_all to save results of recipes.
+
+    Parameters
+    ----------
+    folder
+            folder
+        Folder to save the files.
+    csv
+        The path to the csv file containing fitting results information.
+    fgr
+        The path to the csv file containing fitted PDFs information.
+    cif
+        The path to the csv file containing refined structure information.
+
+    Returns
+    -------
+    save_all
+        A function to save results.
+
+    """
+    def save_all(recipe: MyRecipe, name: str = None, **info: dict):
+        """
+        Save fitting results, fitted PDFs and refined structures to files in one folder and save information in
+        DataFrames. The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in
+        info.
+
+        Parameters
+        ----------
+        recipe
+            The FitRecipe.
+        name
+            The name of saving files.
+        info
+            information to update in DataFame. Each key will be column and each value will be the content of the cell.
+
+        Returns
+        -------
+        uid
+            The uid of the saving.
+        """
+        return _save_all(recipe, folder, name, csv, fgr, cif, **info)
+
+    return save_all
+
+
+def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, fgr: str = None, cif: str = None,
+              **info: dict) -> str:
     """
     Save fitting results, fitted PDFs and refined structures to files in one folder and save information in DataFrames.
     The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in info.
@@ -340,68 +392,90 @@ def save_all(recipe: MyRecipe, folder: str, name: str, info: dict = None) -> str
     ----------
     recipe
         Refined recipe to save.
-    name
-        Basic name of the saving files.
     folder
         Folder to save the files.
+    name
+        Basic name of the saving files. If None, use recipe.name.
+    csv
+        The path to the csv file containing fitting results information.
+    fgr
+        The path to the csv file containing fitted PDFs information.
+    cif
+        The path to the csv file containing refined structure information.
     info
         information to update in DataFame. Each key will be column and each value will be the content of the cell.
+
     Returns
     -------
         string of Uid.
     """
+    print(f"Saving files of results from {recipe.name}...\n")
     uid = str(uuid4())[:4]
-    name += f"_{uid}"
+    name = f"{name}_{uid}" if name else f"{recipe.name}_{uid}"
     name = os.path.join(folder, name)
 
-    info = info if info else {}
-
     csv_file = save_csv(recipe, name)
-    csv_info = dict(file=csv_file, **info)
-    recipe.csv_df = recipe.csv_df.append(csv_info, ignore_index=True)
+    csv_info = dict(file=csv_file, rw=recipe.res.rw, name=recipe.name, **info)
+    if csv:
+        update(csv=csv, csv_info=csv_info)
+    else:
+        pass
 
     for config in recipe.configs:
         con = getattr(recipe, config.name)
         fgr_file = save_fgr(con, base_name=name, rw=recipe.res.rw)
-        fgr_info = dict(file=fgr_file, rw=recipe.res.rw, **info)
-        recipe.fgr_df = recipe.fgr_df.append(fgr_info, ignore_index=True)
+        fgr_info = dict(file=fgr_file, name=recipe.name, rw=recipe.res.rw, **info)
+        if fgr:
+            update(fgr=fgr, fgr_info=fgr_info)
+        else:
+            pass
 
         for gconfig in config.phases:
             gen = getattr(con, gconfig.name)
             cif_file = save_cif(gen, base_name=name, con_name=config.name)
-            cif_info = dict(file=cif_file, rw=recipe.res.rw, **info)
-            recipe.cif_df = recipe.cif_df.append(cif_info, ignore_index=True)
+            cif_info = dict(file=cif_file, name=recipe.name, rw=recipe.res.rw, **info)
+            if cif:
+                update(cif=cif, cif_info=cif_info)
+            else:
+                pass
 
     return uid
 
 
-def updated(recipe: MyRecipe, csv_df: pd.DataFrame = None, fgr_df: pd.DataFrame = None, cif_df: pd.DataFrame = None) ->\
-        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def update(csv_info: dict = None, fgr_info: dict = None, cif_info: dict = None, csv: str = None,
+           fgr: str = None, cif: str = None) -> None:
     """
     Update the information DataFrame using information stored in recipe.
     Parameters
     ----------
-    recipe
-        MyRecipe storing the information of saved files.
-    csv_df
-        Information DataFrame of csvs of fitting results.
-    fgr_df
-        Information DataFrame of fgrs of fitted PDFs.
-    cif_df
-        Information DataFrame of cifs of refined structures.
+    csv_info
+        Information of the csv file.
+    fgr_info
+        Information of the fgr file.
+    cif_info
+        Information of the cif file.
+    csv
+        The path to the csv file containing fitting results information.
+    fgr
+        The path to the csv file containing fitted PDFs information.
+    cif
+        The path to the csv file containing refined structure information.
+
     Returns
     -------
-    csv_df
-        updated csv DataFrame
-    fgr_df
-        updated fgr DataFrame
-    cif_df
-        updated cif DataFrame
+    None
     """
-    if csv_df is not None:
-        csv_df = csv_df.append(recipe.csv_df)
-    if fgr_df is not None:
-        fgr_df = fgr_df.append(recipe.fgr_df)
-    if cif_df is not None:
-        cif_df = cif_df.append(recipe.cif_df)
-    return csv_df, fgr_df, cif_df
+    file_infos = (csv_info, fgr_info, cif_info)
+    dbs = (csv, fgr, cif)
+    names = ("csv", "fgr", "cif")
+    for file_info, db, name in zip(file_infos, dbs, names):
+        if file_info:
+            if db:
+                df = pd.read_csv(db)
+                df = df.append(file_info, ignore_index=True)
+                df.to_csv(db, index=False)
+            else:
+                Warning(f"The information cannot be saved because '{db}' is None.")
+        else:
+            continue
+    return

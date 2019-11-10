@@ -1,6 +1,5 @@
 from typing import Union, List, Callable, Iterable, Tuple
-from diffpy.srfit.fitbase import FitRecipe
-from pandas import DataFrame
+from diffpy.srfit.fitbase import FitRecipe, ProfileGenerator
 
 
 __all__ = ["GenConfig", "FunConfig", "ConConfig", "MyRecipe"]
@@ -15,8 +14,6 @@ class GenConfig:
         :param kwargs: (Optional) keyword arguments to pass to the build_generator functions.
                periodic: (bool) if the structure if periodic. Default auto choose according to extension
                debye: (bool) use DebyePDFGenerator or PDFGenerator. Default auto choose according to extension
-               qmin: (float) qmin for the generator. Default 0. for PDFGenerator and 1. for DebyePDFGenerator
-               qmax: (float) qmax for the generator. Default read value from data file when making recipe
                ncpu: (int) number of parallel computing cores for the generator. If None, no parallel. Default None
         """
         self.name = name
@@ -24,8 +21,6 @@ class GenConfig:
         self.check(kwargs)
         self.periodic = kwargs.get("periodic", self.is_periodic(stru_file))
         self.debye = kwargs.get("debye", not self.periodic)
-        self.qmin = kwargs.get("qmin", None)
-        self.qmax = kwargs.get("qmax", None)
         self.ncpu = kwargs.get("ncpu", None)
 
     @staticmethod
@@ -55,7 +50,7 @@ class GenConfig:
         check if the keyword argument is known.
         :return:
         """
-        known_keywords = ["periodic", "debye", "qmin", "qmax", "ncpu"]
+        known_keywords = ["periodic", "debye", "ncpu"]
         for key in kwargs:
             assert key in known_keywords, f"Unknown keyword: {key}"
         return
@@ -119,26 +114,31 @@ class ConConfig:
         :param base_lines: single or a list of Generator of base line. Default empty tuple.
         :param res_eq: string residual equation. Default "chiv".
         """
-        self.name = name
-        self.eq = eq
-        self.data_file = data_file
-        self.fit_range = fit_range
-        self.qparams = qparams
-        self.phases = _make_list(phases)
-        self.functions = _make_list(functions)
-        self.base_lines = _make_list(base_lines)
-        self.res_eq = res_eq
+        self.name: str = name
+        self.eq: str = eq
+        self.data_file: str = data_file
+        self.fit_range: Tuple[float, float, float] = fit_range
+        self.qparams: Tuple[float, float] = qparams
+        self.phases: List[GenConfig] = _make_list(phases)
+        self.functions: List[FunConfig] = _make_list(functions)
+        self.base_lines: List[ProfileGenerator] = _make_list(base_lines)
+        self.res_eq: str = res_eq
 
 
 class MyRecipe(FitRecipe):
-    def __init__(self, *configs: ConConfig):
+    """
+    The FitRecipe with augmented features.
+    Attributes
+    configs: single or multiple configurations to initiate the contributions in recipe.
+    res: FitResult.
+    name: name of the recipe. Default None.
+    """
+    def __init__(self, configs: Tuple[ConConfig], name=None):
         """Initiate the class."""
         super().__init__()
-        self.configs: Tuple[ConConfig] = configs
+        self.configs = configs
         self.res = None
-        self.csv_df: DataFrame = DataFrame()
-        self.fgr_df: DataFrame = DataFrame()
-        self.cif_df: DataFrame = DataFrame()
+        self.name = name
 
 
 def _make_list(item) -> list:
@@ -147,7 +147,7 @@ def _make_list(item) -> list:
     :param item: object.
     :return:
     """
-    if isinstance(item, Iterable):
+    if isinstance(item, (list, tuple)):
         pass
     else:
         item = [item]

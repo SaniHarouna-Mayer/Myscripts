@@ -193,9 +193,8 @@ def default_refine(gr_file: str, res_dir: str, stru_file: str = None) -> Tuple[f
     fit(recipe, verbose=0)
 
     rw = float(FitResults(recipe).rw)
-    save_all(recipe, res_dir, file_name_base)
-    csv_file = recipe.csv_df.loc[0, 'file']
-    fgr_file = recipe.fgr_df.loc[0, 'file']
+    base_name = os.path.join(res_dir, file_name_base)
+    csv_file, fgr_file = save(recipe, "one_phase", base_name)
 
     plot(recipe.one_phase)
     plt.title(f"Ni fitting (Rw = {rw:.3f})")

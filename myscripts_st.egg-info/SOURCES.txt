@@ -1,13 +1,16 @@
 README.md
 setup.py
 myscripts/__init__.py
-myscripts/experiment.py
+myscripts/average.py
+myscripts/dfmaker.py
 myscripts/fittingclass.py
 myscripts/fittingfunction.py
 myscripts/helper.py
 myscripts/linfit.py
 myscripts/myint.py
 myscripts/myplot.py
+myscripts/selfdefgen.py
+myscripts/tools.py
 myscripts/wlcalib.py
 myscripts/yamlmaker.py
 myscripts_st.egg-info/PKG-INFO

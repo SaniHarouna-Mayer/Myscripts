@@ -33,3 +33,33 @@ class ExpcosGenerator(ProfileGenerator):
         osc = a2 * np.cos(2.*np.pi*x/a0) + a3 * np.sin(2.*np.pi*x/a0)
         y = env * osc
         return y
+
+
+class SineGenerator(ProfileGenerator):
+    """
+    A Generator of a sine wave:
+        y = cos_coef * cos(2 * pi * x / wavelength) + sin_coef * sin(2 * pi * x / wavelength)
+    Attributes
+    ----------
+    wavelength
+        Wavelength of the wave.
+    cos_coef
+        Coefficient of the cos part.
+    sin_coef
+        Coefficient of the sin part.
+
+    """
+    def __init__(self, name):
+        ProfileGenerator.__init__(self, name)
+        self._newParameter("wavelength", 20.0)
+        self._newParameter("cos_coef", .1)
+        self._newParameter("sin_coef", .1)
+        return
+
+    def __call__(self, x):
+        a0 = self.wavelength.value
+        a2 = self.cos_coef.value
+        a3 = self.sin_coef.value
+        osc = a2 * np.cos(2.*np.pi*x/a0) + a3 * np.sin(2.*np.pi*x/a0)
+        y = osc
+        return y

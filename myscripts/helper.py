@@ -777,3 +777,28 @@ def to_latex(df: pd.DataFrame, label="", caption="", **kwargs):
 
     print(table_str)
     return
+
+
+# functions to deal with DataFrames
+def join_result(csv_files: Iterable[str], chosen_column: str = 'val', column_names: List[str] = None) -> pd.DataFrame:
+    """
+    Join multiple csv files into a single DataFrame with specific column names.
+
+    Parameters
+    ----------
+    csv_files
+        Multiple csv files.
+    chosen_column
+        Choose the column in each DataFrame to appear in the result. Default 'val'.
+    column_names
+        Column names for the resulting DataFrame.
+
+    Returns
+    -------
+    The result DataFrame.
+
+    """
+    dfs = (pd.read_csv(f, index_col=0)[chosen_column] for f in csv_files)
+    df = pd.concat(dfs, axis=1, ignore_index=True, sort=False)
+    df.columns = column_names
+    return df
