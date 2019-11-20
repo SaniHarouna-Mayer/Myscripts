@@ -702,10 +702,54 @@ def label_panel(ax, text, fpos):
 
 
 # function to save figures
-def set_savefig(func, **settings):
-    """set kwargs for savefig and return a new function. See helper.savefig for what kwargs can be passed."""
+def set_savefig(**settings):
+    """
+    Set kwargs for savefig and return a new function.
+
+    Parameters
+    ----------
+    settings
+        kwargs that can be passed to 'func'. Usually:
+            caption
+                caption to print in latex.
+            fig
+                figure to save. If None, get current figure.
+            savedir
+                directory to save the figure
+            fmt
+                format of the figure. It will also be the extension.
+            print_tex
+                choose to print latex or not.
+
+    Returns
+    -------
+    _savefig
+        a function to save figures.
+    """
     def _savefig(filename, **kwargs):
-        return func(filename, **settings, **kwargs)
+        """
+            Save current figure and print out the latex text of loading figure.
+
+            Parameters
+            ----------
+            filename
+                name of the file without extension.
+            caption
+                caption to print in latex.
+            fig
+                figure to save. If None, get current figure.
+            savedir
+                directory to save the figure
+            fmt
+                format of the figure. It will also be the extension.
+            print_tex
+                choose to print latex or not.
+
+            Returns
+            -------
+                None.
+            """
+        return savefig(filename, **settings, **kwargs)
     return _savefig
 
 

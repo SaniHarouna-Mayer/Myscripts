@@ -73,7 +73,7 @@ def extract(data, x0, pdfgetter=None, rlim=None, out_file=None, options=None):
     component = np.array(sliced_gs[1:])
 
     # get coefficient using least square
-    def residual(x):
+    def residual(x: np.array):
         return target - np.dot(x, component)
 
     if options is None:

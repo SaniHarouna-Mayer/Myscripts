@@ -5,13 +5,14 @@ import fire
 import numpy as np
 import matplotlib.pyplot as plt
 from myscripts.tools import find_all_tiff, find_all
-from myscripts.helper import  loadData
+from myscripts.helper import loadData
+from typing import Tuple
 
 
 __all__ = ["main"]
 
 
-def average_tiff(dir_path: str, outfile: str, tiff_names: str = None):
+def average_tiff(dir_path: str, outfile: str, tiff_names: Tuple[str] = None):
     """
     Average the tiff images in a directory and save it as a tiff file in that directory.
 
@@ -66,7 +67,7 @@ def average_tiff(dir_path: str, outfile: str, tiff_names: str = None):
     return
 
 
-def average_files(dir_path: str, outfile: str, ext: str = None, file_names: str = None):
+def average_files(dir_path: str, outfile: str, ext: str = None, file_names: Tuple[str] = None):
     """
     Average the txt files of two columns of data in a directory and save it as a txt file in that directory.
 
@@ -109,7 +110,7 @@ def average_files(dir_path: str, outfile: str, ext: str = None, file_names: str 
     return
 
 
-def main(outfile: str, file_type: str = None, dir_path: str = None, file_names: str = None):
+def main(outfile: str, *file_names: str, file_type: str = None, dir_path: str = None):
     """
     Average tiff image or integration results.
     Parameters

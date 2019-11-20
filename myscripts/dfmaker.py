@@ -4,7 +4,7 @@ import pandas as pd
 from myscripts.tools import find_all_tiff
 
 
-__all__ = ["make_df"]
+__all__ = ["make_df", "main"]
 
 
 def make_df(tiff_base: str, mapping: pd.DataFrame) -> pd.DataFrame:
@@ -47,14 +47,13 @@ def main(tiff_base: str, in_csv: str, out_csv: str):
     tiff_base
         Path to the tiff_base folder.
     in_csv
-        Path to the input csv file.
+        Path to the input csv file. It includes columns: 'folder', 'bg', 'poni'.
     out_csv
         Path to the output csv file.
 
     Returns
     -------
         None.
-
     """
     mapping = pd.read_csv(in_csv)
     df = make_df(tiff_base, mapping)

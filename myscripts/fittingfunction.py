@@ -384,7 +384,7 @@ def gen_save_all(folder: str, csv: str = None, fgr: str = None, cif: str = None)
 
 
 def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, fgr: str = None, cif: str = None,
-              **info: dict) -> str:
+              **kwargs: dict) -> str:
     """
     Save fitting results, fitted PDFs and refined structures to files in one folder and save information in DataFrames.
     The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in info.
@@ -402,7 +402,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
         The path to the csv file containing fitted PDFs information.
     cif
         The path to the csv file containing refined structure information.
-    info
+    kwargs
         information to update in DataFame. Each key will be column and each value will be the content of the cell.
 
     Returns
@@ -415,7 +415,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
     name = os.path.join(folder, name)
 
     csv_file = save_csv(recipe, name)
-    csv_info = dict(file=csv_file, rw=recipe.res.rw, name=recipe.name, **info)
+    csv_info = dict(file=csv_file, rw=recipe.res.rw, name=recipe.name, **kwargs)
     if csv:
         update(csv=csv, csv_info=csv_info)
     else:
@@ -424,7 +424,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
     for config in recipe.configs:
         con = getattr(recipe, config.name)
         fgr_file = save_fgr(con, base_name=name, rw=recipe.res.rw)
-        fgr_info = dict(file=fgr_file, name=recipe.name, rw=recipe.res.rw, **info)
+        fgr_info = dict(file=fgr_file, name=recipe.name, rw=recipe.res.rw, **kwargs)
         if fgr:
             update(fgr=fgr, fgr_info=fgr_info)
         else:
@@ -433,7 +433,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
         for gconfig in config.phases:
             gen = getattr(con, gconfig.name)
             cif_file = save_cif(gen, base_name=name, con_name=config.name)
-            cif_info = dict(file=cif_file, name=recipe.name, rw=recipe.res.rw, **info)
+            cif_info = dict(file=cif_file, name=recipe.name, rw=recipe.res.rw, **kwargs)
             if cif:
                 update(cif=cif, cif_info=cif_info)
             else:

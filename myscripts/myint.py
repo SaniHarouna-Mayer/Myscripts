@@ -3,8 +3,10 @@ import pyFAI
 import fabio
 import shutil
 import numpy as np
+import matplotlib.pyplot as plt
 from xpdtools.cli.process_tiff import main as integrate
 from typing import Iterable, List, Union, Tuple
+from diffpy.pdfgetx import loaddata
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -61,7 +63,7 @@ def check_kwargs(kwargs: dict, options: List[str]) -> None:
 
 
 # functions for integration
-def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, **kwargs) -> Tuple[str, str]:
+def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool = True, **kwargs) -> Tuple[str, str]:
     """
     integrate using xpdtools and save result in chi file.
     Parameters
@@ -72,6 +74,8 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, **kwargs) 
         The path to tiff file.
     chi_dir
         Move the chi files to chi_dir if chi_dir is not None. Default None.
+    plot
+        Plot the qi data and mask image or not. Default True.
     kwargs
         The kwargs arguments to pass to integrate. They are:
         bg_file: str or None, optional
@@ -113,12 +117,13 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, **kwargs) 
     -------
     path to chi file, path to mask file.
     """
+    print(f"Integrate with xpdtools ...\nTiff file:\n{tiff_file}\nPoni file:\n{poni_file}")
     integrate(poni_file=poni_file, image_files=tiff_file, **kwargs)
     src_chi_file = os.path.splitext(tiff_file)[0] + ".chi"
     mask_file = os.path.splitext(tiff_file)[0] + "_mask.npy"
 
     # move them to chi_dir
-    def move_to_dir():
+    def move_to_dir():  
         chi_file_name = os.path.basename(src_chi_file)
         dst_chi_file = os.path.join(chi_dir, chi_file_name)
         shutil.move(src_chi_file, dst_chi_file)
@@ -130,6 +135,13 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, **kwargs) 
     else:
         moved_chi_file = src_chi_file
 
+    if plot:
+        q, i = loaddata(moved_chi_file).T
+        mask = np.load(mask_file) if os.path.exists(mask_file) else None
+        plot_qi_and_mask(q, i, mask)
+    else:
+        pass
+
     return moved_chi_file, mask_file
 
 
@@ -138,7 +150,8 @@ def pyfai_int(poni_file: str, tiff_file: str,
               bg_file: str = None,
               bg_scale: float = 1.,
               mask_file: str = None,
-              invert_mask=True,
+              invert_mask: bool = True,
+              plot: bool = True,
               **kwargs) -> str:
     """
     Integrate tiff image to Q, I array and save in xy file.
@@ -159,6 +172,8 @@ def pyfai_int(poni_file: str, tiff_file: str,
         before input to ai.integrate1d. If None: no masks. Default None.
     invert_mask
         Invert input mask or not. Only valid when mask_file is not None. Default True.
+    plot
+        Plot the results of integration or not. The mask will be plotted in a inverted situation. Default True.
     kwargs
         kwargs for ai.integrate1d. The important parameters are:
         npt: number of points int the integration. Default 1480.
@@ -170,6 +185,7 @@ def pyfai_int(poni_file: str, tiff_file: str,
     Path to xt file.
     """
     # get kwargs
+    print(f"Integrate with PyFAI ...\nTiff file:\n{tiff_file}\nPoni file:\n{poni_file}")
     npt = kwargs.get("npt", 1480)
     unit = kwargs.get("unit", "q_A^-1")
     polarization = kwargs.get("polarization", 0.99)
@@ -198,10 +214,17 @@ def pyfai_int(poni_file: str, tiff_file: str,
     else:
         mask_data = None
 
-    ai.integrate1d(tiff_data - bg_scale * bg_data,
-                   mask=mask_data,
-                   filename=xy_file,
-                   npt=npt, unit=unit, polarization_factor=polarization, correctSolidAngle=False)
+    q, i = ai.integrate1d(tiff_data - bg_scale * bg_data,
+                          mask=mask_data,
+                          filename=xy_file,
+                          npt=npt, unit=unit, polarization_factor=polarization, correctSolidAngle=False)
+
+    if plot:
+        mask_data_for_plotting = np.invert(mask_data) if mask_data is not None else None
+        plot_qi_and_mask(q, i, mask_data_for_plotting)
+    else:
+        pass
+
     return xy_file
 
 
@@ -217,4 +240,25 @@ def _invert_mask(mask: str) -> None:
     arr = np.invert(arr)
     # save mask file
     np.save(mask, arr)
+    return
+
+
+def plot_qi_and_mask(q: np.array, i: np.array, mask: Union[None, np.array]):
+    """
+    Plot the qi curve and mask image on one figure.
+    """
+    plt.figure(figsize=(8, 4))
+
+    plt.subplot(121)
+    plt.plot(q, i, '-')
+    plt.xlabel(r'Q ($\AA^{-1}$)')
+    plt.ylabel(r'I (A. U.)')
+
+    if mask is not None:
+        plt.subplot(122)
+        plt.imshow(mask)
+    else:
+        pass
+
+    plt.show()
     return

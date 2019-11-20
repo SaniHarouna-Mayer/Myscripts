@@ -1,7 +1,7 @@
 from myscripts.helper import *
 
 
-__all__ = ['compare_data', 'compare_panel', 'plot_gr', 'plot_fgr', 'plot_axfgr']
+__all__ = ['compare_data', 'compare_panel', 'plot_gr', 'plot_fgr', 'plot_axfgr', 'plot_panel']
 
 
 def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, diff=False):
@@ -57,7 +57,7 @@ def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, d
     # check file type and get labelss
     xl, yl = get_label(files)
     config_ax(ax, rlim, None, xl, yl)
-    return fig
+    return
 
 
 def compare_panel(files, rlim, names=None, colors=None, normal=False, **kwargs):
@@ -127,7 +127,7 @@ def compare_panel(files, rlim, names=None, colors=None, normal=False, **kwargs):
     # annotation
     add_legend(lines1, names)
     ax1.legend()
-    return fig
+    return
 
 
 def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
@@ -187,7 +187,7 @@ def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
 
     config_ax(ax, rlim, None, r'r ($\AA$)', r'G ($\AA^{-2}$)')
 
-    return fig
+    return
 
 
 def plot_panel(files, rlim, names=None, colors=None, normal=False, **kwargs):
@@ -273,7 +273,7 @@ def plot_panel(files, rlim, names=None, colors=None, normal=False, **kwargs):
     label_panel(ax1, label1, lpos)
     # configure ax
     config_panels(ax0, ax1, ax2, rlim, lpad)
-    return fig
+    return
 
 
 def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
@@ -376,7 +376,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
 
     # configure axes
     config_ax(ax, rlim, None, r"r ($\AA$)", r"G ($\AA^{-2}$)")
-    return fig
+    return
 
 
 def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
@@ -476,7 +476,7 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
     # configure axes
     config_axes(axs, rlim, r"r ($\AA$)", r"G ($\AA^{-2}$)")
 
-    return fig
+    return
 
 
 # project specific functions
@@ -532,4 +532,4 @@ def plot_example(files: Union[str, List[str]],
         pass
     # configure axes
     config_ax(ax, rlim, None, r'r ($\AA$)', r'G ($\AA^{-2}$)')
-    return fig
+    return
