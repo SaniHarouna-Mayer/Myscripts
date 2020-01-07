@@ -9,6 +9,7 @@ from matplotlib.lines import Line2D
 from numpy import array
 import matplotlib.pyplot as plt
 import pandas as pd
+from uncertainties import ufloat
 
 
 def find(sdir: str, pattern: str) -> List[str]:
@@ -249,7 +250,7 @@ def attach_rw(names: List[str], rws: List[str], rwpos: str):
     """
     newnames = []
     for name, rw in zip(names, rws):
-        rw_str = "Rw {:.3f}".format(float(rw))
+        rw_str = r"$R_w = {:.3f}$".format(float(rw))
         newname = name + rwpos + rw_str
         newnames.append(newname)
     return newnames
@@ -418,6 +419,7 @@ def slice_data(xs:  List[array], ys: List[array], xlim: Tuple[float, float]) -> 
     :param ys: a list of y array.
     :param xlim: starting point (included) and end point (included).
     :return:
+        sliced xs, sliced ys
     """
     xxs, yys = list(), list()
     for x, y in zip(xs, ys):
@@ -529,28 +531,33 @@ def add_solidlines(axs: Union[Axes, List[Axes]], xs: List[array], ys: List[array
 
 
 def add_fgrlines(axs, rs, gs, gcalcs, gdiffs, gzeros):
-    ldatas, lcalcs, ldiffs, lzeros = list(), list(), list(), list()
+    ldatas, lcalcs, ldiffs, lzeros, fill_areas = list(), list(), list(), list(), list()
     if isinstance(axs, list):
         for ax, r, g, gcalc, gdiff, gzero in zip(axs, rs, gs, gcalcs, gdiffs, gzeros):
             ldata, = ax.plot(r, g, "o", mfc="None")
             lcalc, = ax.plot(r, gcalc, "-")
             lzero, = ax.plot(r, gzero, "--", color="grey")
             ldiff, = ax.plot(r, gdiff, "-")
+            fill_area = ax.fill_between(r, gdiff, gzero, alpha=0.4)
             ldatas.append(ldata)
             lcalcs.append(lcalc)
             lzeros.append(lzero)
             ldiffs.append(ldiff)
+            fill_areas.append(fill_area)
     else:
+        ax = axs
         for r, g, gcalc, gdiff, gzero in zip(rs, gs, gcalcs, gdiffs, gzeros):
-            ldata, = axs.plot(r, g, "o", mfc="None")
-            lcalc, = axs.plot(r, gcalc, "-")
-            lzero, = axs.plot(r, gzero, "--", color="grey")
-            ldiff, = axs.plot(r, gdiff, "-")
+            ldata, = ax.plot(r, g, "o", mfc="None")
+            lcalc, = ax.plot(r, gcalc, "-")
+            lzero, = ax.plot(r, gzero, "--", color="grey")
+            ldiff, = ax.plot(r, gdiff, "-")
+            fill_area = ax.fill_between(r, gdiff, gzero, alpha=0.4)
             ldatas.append(ldata)
             lcalcs.append(lcalc)
             lzeros.append(lzero)
             ldiffs.append(ldiff)
-    return ldatas, lcalcs, ldiffs, lzeros
+            fill_areas.append(fill_area)
+    return ldatas, lcalcs, ldiffs, lzeros, fill_areas
 
 
 def annotate_plots(axs, names, poss, align=("left", "center")):
@@ -585,6 +592,23 @@ def calc_poss(xs, ys, fpos):
         poss.append((xa, ya))
         # record the ymin for the next curve
         pre_ymin = np.min(y[x > xa])
+    return poss
+
+
+def calc_poss_fgr(xs, ys, ycalcs, ydiffs, fpos):
+    poss = list()
+    fx, fy = fpos
+    # bound of positions is between the min of previous ydiff and max of current y and ycalc
+    for n in range(len(xs)):
+        xa = (1 - fx) * np.min(xs[n]) + fx * np.max(xs[n])
+        curymax = max([np.max(ys[n][xs[n] > xa]), np.max(ycalcs[n][xs[n] > xa])])
+        if n > 0:
+            preydiffmin = np.min(ydiffs[n-1])
+            ya = (1 - fy) * curymax + fy * preydiffmin
+        else:
+            _, ytop = plt.gca().get_ylim()
+            ya = (1 - fy) * curymax + fy * ytop
+        poss.append((xa, ya))
     return poss
 
 
@@ -824,7 +848,7 @@ def to_latex(df: pd.DataFrame, label="", caption="", **kwargs):
 
 
 # functions to deal with DataFrames
-def join_result(csv_files: Iterable[str], chosen_column: str = 'val', column_names: List[str] = None) -> pd.DataFrame:
+def join_result(csv_files: Iterable[str], chosen_column: str = 'val', column_names: Iterable[str] = None) -> pd.DataFrame:
     """
     Join multiple csv files into a single DataFrame with specific column names.
 
@@ -839,10 +863,89 @@ def join_result(csv_files: Iterable[str], chosen_column: str = 'val', column_nam
 
     Returns
     -------
-    The result DataFrame.
+    df
+        The result DataFrame.
 
     """
     dfs = (pd.read_csv(f, index_col=0)[chosen_column] for f in csv_files)
-    df = pd.concat(dfs, axis=1, ignore_index=True, sort=False)
-    df.columns = column_names
+    df: pd.DataFrame = pd.concat(dfs, axis=1, ignore_index=True, sort=False)
+    df = df.rename_axis(None)
+    if isinstance(column_names, pd.Series):
+        df.columns = column_names.to_list()
+    elif column_names:
+        df.columns = column_names
+    else:
+        pass
     return df
+
+
+def join_result_with_std(csv_files: Iterable[str], column_names: Iterable[str] = None) -> pd.DataFrame:
+    """
+    Load multiple fitting results into a single DataFrame. Each cell contains 'value+/-std' (ufloat).
+
+    Parameters
+    ----------
+    csv_files
+        Multiple csv files.
+    column_names
+        Column names for the resulting DataFrame. If None, do not change column changes. Default None.
+
+    Returns
+    -------
+    df
+        The result DataFrame.
+
+    """
+    dfs = (pd.read_csv(f, index_col=0) for f in csv_files)
+
+    def join_val_std(_df: pd.DataFrame):
+        lst = [ufloat(val, std) for val, std in zip(_df['val'], _df['std'])]
+        sr = pd.Series(lst, index=_df.index)
+        return sr
+
+    srs = [join_val_std(df) for df in dfs]
+    res: pd.DataFrame = pd.concat(srs, axis=1, ignore_index=True, sort=False)
+    res = res.rename_axis(None)
+    if isinstance(column_names, pd.Series):
+        res.columns = column_names.to_list()
+    elif column_names:
+        res.columns = column_names
+    else:
+        pass
+    return res
+
+
+def gradient_color(color1, color2, num):
+    """Generate a list of long hex representations of gradient colors."""
+    from colour import Color
+    return [color.hex_l for color in Color(color1).range_to(Color(color2), num)]
+
+
+def add_color_column(df: pd.DataFrame, src_df: pd.DataFrame, ref_col: str = 'name', src_col: str = 'label',
+                     clr_col: str = 'c') -> None:
+    """
+    Add a column of assigned color to the DataFrame for plotting. The color is defined by mapping the value in the
+    reference column in the DataFrame to the color column in the source DataFrame.
+
+    Parameters
+    ----------
+    df
+        The DataFrame to add color column.
+    src_df
+        The source DataFrame to find the color for each row.
+    ref_col
+        The name of the reference column in the DataFrame
+    src_col
+        The corresponding column in the source DataFrame.
+    clr_col
+        The name of the new column of colors.
+
+    Returns
+    -------
+    None
+        The operation is in place.
+
+    """
+    new_col = df[ref_col].apply(lambda cell_val: src_df.set_index(src_col).loc[cell_val, clr_col])
+    df.insert(len(df.columns), clr_col, new_col)
+    return

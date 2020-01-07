@@ -6,15 +6,41 @@ __all__ = ["GenConfig", "FunConfig", "ConConfig", "MyRecipe"]
 
 
 class GenConfig:
+    """
+    A configuration class to provide information in the building of PDFGenerator or DebyePDFGenerator. It is used
+    by 'make_generator' in 'myscripts.fittingfunction'.
+
+    Attributes
+    ----------
+    name
+        The name of the generator.
+    stru_file
+        The file path of the structure file.
+    periodic : bool
+        If the structure if periodic. Default if cif or stru, True else False.
+    debye : bool
+        Use DebyePDFGenerator or PDFGenerator. Default: if periodic, False else True
+    ncpu : int
+        number of parallel computing cores for the generator. If None, no parallel. Default None.
+
+    """
     def __init__(self, name: str, stru_file: str, **kwargs):
         """
-        Generator configuration. It is used to make generator.
-        :param name: name of the phase, also generator name in Fitrecipe.
-        :param stru_file: file name of the structure file.
-        :param kwargs: (Optional) keyword arguments to pass to the build_generator functions.
-               periodic: (bool) if the structure if periodic. Default auto choose according to extension
-               debye: (bool) use DebyePDFGenerator or PDFGenerator. Default auto choose according to extension
-               ncpu: (int) number of parallel computing cores for the generator. If None, no parallel. Default None
+        Initiate the GenConfig.
+
+        Parameters
+        ----------
+        name
+            The name of the generator.
+        stru_file
+            The file path of the structure file.
+        kwargs: (Optional) Keyword arguments to pass to the build_generator functions. They are
+            periodic : bool
+                If the structure if periodic. Default if cif or stru, True else False.
+            debye : bool
+                Use DebyePDFGenerator or PDFGenerator. Default: if periodic, False else True
+            ncpu : int
+                number of parallel computing cores for the generator. If None, no parallel. Default None.
         """
         self.name = name
         self.stru_file = stru_file
@@ -52,18 +78,26 @@ class GenConfig:
         """
         known_keywords = ["periodic", "debye", "ncpu"]
         for key in kwargs:
-            assert key in known_keywords, f"Unknown keyword: {key}"
+            if key in known_keywords:
+                continue
+            else:
+                raise KeyError(f"Unknown keyword: {key}")
         return
 
 
 class FunConfig:
     """
     Configuration for the characteristic function.
+
     Attributes
-        name: name of the function, also the name in Fitcontribution.
-        func_type: characteristic function from diffpy cmi.
-        argnames: argument names in the function. it will rename all arguments to avoid conflicts. If None, no renaming.
-        If not None, it always starts with "r" when using diffpy characteristic functions. Default None.
+    ----------
+        name
+            name of the function, also the name in Fitcontribution.
+        func_type
+            characteristic function from diffpy cmi.
+        argnames
+            argument names in the function. it will rename all arguments to avoid conflicts. If None, no renaming.
+            If not None, it always starts with "r" when using diffpy characteristic functions. Default None.
     """
     def __init__(self, name: str, func_type: Callable, argnames: List[str] = None):
         """
@@ -81,16 +115,27 @@ class FunConfig:
 class ConConfig:
     """
     Configuration for the FitContribution.
+
     Attributes
-        name: the name of Fitcontribution.
-        data_file: path to the data file.
-        fit_range: rmin, rmax, rstep for fitting.
-        qparams: qdamp, qbroad from calibration.
-        eq: equation string for the Fitcontribution.
-        phases: single or a list of GenConfig object. Default empty tuple.
-        functions: single or a list of FunConfig object. Default empty tuple.
-        base_lines: single or a list of Generator instance of base line. Default empty tuple.
-        res_eq: string residual equation. Default "chiv".
+    ----------
+        name
+            the name of Fitcontribution.
+        data_file
+            path to the data file.
+        fit_range
+            rmin, rmax, rstep for fitting.
+        qparams
+            qdamp, qbroad from calibration.
+        eq
+            equation string for the Fitcontribution.
+        phases
+            single or a list of GenConfig object. Default empty tuple.
+        functions
+            single or a list of FunConfig object. Default empty tuple.
+        base_lines
+            single or a list of Generator instance of base line. Default empty tuple.
+        res_eq
+            string residual equation. Default "chiv".
     """
     def __init__(self,
                  name: str,
@@ -128,10 +173,15 @@ class ConConfig:
 class MyRecipe(FitRecipe):
     """
     The FitRecipe with augmented features.
+
     Attributes
-    configs: single or multiple configurations to initiate the contributions in recipe.
-    res: FitResult.
-    name: name of the recipe. Default None.
+    ----------
+    configs
+        single or multiple configurations to initiate the contributions in recipe.
+    res
+        FitResult. Updated when FitResult is called. Default None.
+    name
+        name of the recipe. It will be saved if 'save' is used. Default None.
     """
     def __init__(self, configs: Tuple[ConConfig], name=None):
         """Initiate the class."""

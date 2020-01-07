@@ -63,3 +63,47 @@ class SineGenerator(ProfileGenerator):
         osc = a2 * np.cos(2.*np.pi*x/a0) + a3 * np.sin(2.*np.pi*x/a0)
         y = osc
         return y
+
+
+class SineWaveGenerator(ProfileGenerator):
+    """A generator that generates a exponential decaying sine wave."""
+
+    def __init__(self, name, *init_params):
+        ProfileGenerator.__init__(self, name)
+        self._newParameter("wl", init_params[0])
+        self._newParameter("amp", init_params[1])
+        self._newParameter("dec", init_params[2])
+        self._newParameter("x0", init_params[3])
+        return
+
+    def __call__(self, x):
+        wl = self.wl.value
+        amp = self.amp.value
+        dec = self.dec.value
+        x0 = self.x0.value
+
+        y = amp * np.exp(-dec * x) * np.sin(2 * np.pi * (x - x0) / wl)
+        return y
+
+
+class SineWaveGenerator2(ProfileGenerator):
+    """
+    A generator that generates a exponential decaying sine wave.
+        y = amp * np.exp(-dec * (x - x0)) * np.sin(2 * np.pi * x / wl)
+    """
+    def __init__(self, name, *init_params):
+        ProfileGenerator.__init__(self, name)
+        self._newParameter("wl", init_params[0])
+        self._newParameter("amp", init_params[1])
+        self._newParameter("dec", init_params[2])
+        self._newParameter("x0", init_params[3])
+        return
+
+    def __call__(self, x):
+        wl = self.wl.value
+        amp = self.amp.value
+        dec = self.dec.value
+        x0 = self.x0.value
+
+        y = amp * np.exp(-dec * (x - x0)) * np.sin(2 * np.pi * x / wl)
+        return y

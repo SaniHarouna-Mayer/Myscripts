@@ -115,7 +115,10 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool
             to 1
     Returns
     -------
-    path to chi file, path to mask file.
+    moved_chi_file
+        Path to the chi file. If chi_dir is specified, it will be in the chi_dir.
+    mask_file
+        Path to the mask file. It is in the same directory as tiff file.
     """
     print(f"Integrate with xpdtools ...\nTiff file:\n{tiff_file}\nPoni file:\n{poni_file}")
     integrate(poni_file=poni_file, image_files=tiff_file, **kwargs)
@@ -182,7 +185,8 @@ def pyfai_int(poni_file: str, tiff_file: str,
         method: integration method, a string or a registered method. Default "csr".
     Returns
     -------
-    Path to xt file.
+    xy_file
+        Path to xy file. If xy_dir is specified, it will be in the xy_dir.
     """
     # get kwargs
     print(f"Integrate with PyFAI ...\nTiff file:\n{tiff_file}\nPoni file:\n{poni_file}")

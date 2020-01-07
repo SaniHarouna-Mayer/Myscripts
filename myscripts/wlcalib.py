@@ -38,10 +38,12 @@ def calib_wl(tiff_file: str,
     -------
         A list of dictionary that contains keys: "poni", "chi", "gr", "Rw", "csv", "fgr", "wl".
     """
-    child_dirs = [os.path.join(working_dir, item_name)
-                  for item_name in os.listdir(working_dir)
-                  if os.path.isdir(item_name) and item_name[0] != r"."]
-    child_dirs.sort()
+    child_dirs = []
+    for item in os.listdir(working_dir):
+        item_path = os.path.join(working_dir, item)
+        if os.path.isdir(item_path) and item[0] != '.':
+            child_dirs.append(item_path)
+    child_dirs = sorted(child_dirs)
 
     res_lst = list()
 

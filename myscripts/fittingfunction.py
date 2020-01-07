@@ -3,12 +3,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import multiprocessing
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Dict
 from scipy.optimize import least_squares
 from uuid import uuid4
+from collections import Counter
+from  diffpy.structure import  Structure
 from diffpy.srfit.structure.sgconstraints import constrainAsSpaceGroup
 import diffpy.srfit.pdf.characteristicfunctions as characteristicfunctions
-
 from diffpy.structure import loadStructure
 from diffpy.srfit.pdf import PDFGenerator, DebyePDFGenerator, PDFParser
 from diffpy.srfit.fitbase import Profile, FitContribution, FitResults
@@ -18,7 +19,7 @@ from deprecated import deprecated
 
 
 __all__ = ["make_profile", "make_generator", "make", "fit", "gen_save_all", "save", "F", "plot",
-           "constrainAsSpaceGroup", "calc"]
+           "constrainAsSpaceGroup", "calc", "load_default", 'sgconstrain', 'free_and_fit']
 
 
 # abbreviate some useful modules and functions
@@ -48,13 +49,21 @@ def make_profile(data_file: str, fit_range: Tuple[float, float, float]) -> Profi
 
 def make_generator(config: GenConfig) -> Union[PDFGenerator, DebyePDFGenerator]:
     """
-    build generator from a Phase object.
-    :param config: Phase object.
-    :return:
-        generator: generator object.
+    Build a generator according to the information in the GenConfig.
+
+    Parameters
+    ----------
+    config : GenConfig
+        A configuration instance for generator building.
+
+    Returns
+    -------
+    generator: PDFGenerator or DebyePDFGenerator
+        A generator built from GenConfig.
+
     """
     name = config.name
-    stru = loadStructure(config.stru_file)
+    stru: Structure = loadStructure(config.stru_file)
     ncpu = config.ncpu
 
     if config.debye:
@@ -75,9 +84,18 @@ def make_generator(config: GenConfig) -> Union[PDFGenerator, DebyePDFGenerator]:
 
 def make_contribution(config: ConConfig) -> FitContribution:
     """
-    make recipe for fitting, including the data and the model, without any fitting variables set or added.
-    :param config: Model object.
-    :return:
+    Make a FitContribution according to the ConConfig.
+
+    Parameters
+    ----------
+    config : ConConfig
+        The configuration instance for the FitContribution.
+
+    Returns
+    -------
+    contribution : FitContribution
+        The FitContribution built from ConConfig.
+
     """
     contribution = FitContribution(config.name)
 
@@ -108,11 +126,23 @@ def make_contribution(config: ConConfig) -> FitContribution:
 
 def make(*configs: ConConfig, name: str = None, weights: List[float] = None) -> MyRecipe:
     """
-    make recipe based on models.
-    :param configs: arbitrary number of ConConfig. Each config make one contribution in recipe.
-    :param name: name of the recipe. If None, use "unnamed".
-    :param weights: list of weights for each contribution. if None, weight will be 1. / len(models).
-    :return: fit recipe.
+    Make a FitRecipe based on single or multiple ConConfig.
+
+    Parameters
+    ----------
+    configs
+        The configurations of single or multiple FitContribution.
+    name
+        The name of the recipe. Default None.
+    weights
+        The weights for the evaluation of each FitContribution. It should have the same length as the number of
+        ConConfigs.
+
+    Returns
+    -------
+    recipe
+        MyRecipe built from ConConfigs.
+
     """
     name = name if name else "unnamed"
     recipe = MyRecipe(configs=configs, name=name)
@@ -175,21 +205,29 @@ def _make_df(recipe: MyRecipe) -> pd.DataFrame:
 
 def fit(recipe: MyRecipe, **kwargs) -> None:
     """
-    fit the data according to recipe. parameters associated with fitting can be set in kwargs.
-    :param recipe: recipe to fit.
-    :param kwargs: parameters in fitting. including
-                   verbose: how much information to print. Default 2
-                   values: initial value for fitting. Default get from recipe
-                   bounds: two list of lower and upper bounds. Default get from recipe
-                   xtol, gtol, ftol: tolerance in least squares. Default 1.E-4, 1.E-4, 1.E-4
-                   max_nfev: maximum number of evaluation of residual function. Default None
-                   _print: whether to print the data. Default False
-    :return: None.
+    Fit the data according to recipe. parameters associated with fitting can be set in kwargs.
+
+    Parameters
+    ----------
+    recipe
+        MyRecipe to fit.
+    kwargs
+        Parameters in fitting. They are
+            verbose: how much information to print. Default 2.
+            values: initial value for fitting. Default get from recipe.
+            bounds: two list of lower and upper bounds. Default get from recipe.
+            xtol, gtol, ftol: tolerance in least squares. Default 1.E-4, 1.E-4, 1.E-4.
+            max_nfev: maximum number of evaluation of residual function. Default None.
+            _print: whether to print the data. Default False.
+    Returns
+    -------
+    None
+
     """
     values = kwargs.get("values", recipe.values)
     bounds = kwargs.get("bounds", recipe.getBounds2())
     verbose = kwargs.get("verbose", 2)
-    xtol = kwargs.get("xtol", 1.E-4)
+    xtol = kwargs.get("xtol", 1.E-8)
     gtol = kwargs.get("gtol", 1.E-4)
     ftol = kwargs.get("ftol", 1.E-4)
     max_nfev = kwargs.get("max_fev", None)
@@ -276,6 +314,7 @@ def save(recipe: MyRecipe, con_names: Union[str, List[str]], base_name: str) -> 
 def save_csv(recipe: MyRecipe, base_name: str) -> str:
     """
     Save fitting results to a csv file.
+
     Parameters
     ----------
     recipe
@@ -296,6 +335,7 @@ def save_csv(recipe: MyRecipe, base_name: str) -> str:
 def save_fgr(contribution: FitContribution, base_name: str, rw: float) -> str:
     """
     Save fitted PDFs to a four columns txt files with Rw as header.
+
     Parameters
     ----------
     contribution
@@ -317,6 +357,7 @@ def save_fgr(contribution: FitContribution, base_name: str, rw: float) -> str:
 def save_cif(generator: Union[PDFGenerator, DebyePDFGenerator], base_name: str, con_name: str, ext: str = "cif") -> str:
     """
     Save refined structure.
+
     Parameters
     ----------
     generator
@@ -358,7 +399,7 @@ def gen_save_all(folder: str, csv: str = None, fgr: str = None, cif: str = None)
         A function to save results.
 
     """
-    def save_all(recipe: MyRecipe, name: str = None, **info: dict):
+    def save_all(recipe: MyRecipe, name: str = None, **kwargs):
         """
         Save fitting results, fitted PDFs and refined structures to files in one folder and save information in
         DataFrames. The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in
@@ -370,7 +411,7 @@ def gen_save_all(folder: str, csv: str = None, fgr: str = None, cif: str = None)
             The FitRecipe.
         name
             The name of saving files.
-        info
+        kwargs
             information to update in DataFame. Each key will be column and each value will be the content of the cell.
 
         Returns
@@ -378,16 +419,17 @@ def gen_save_all(folder: str, csv: str = None, fgr: str = None, cif: str = None)
         uid
             The uid of the saving.
         """
-        return _save_all(recipe, folder, name, csv, fgr, cif, **info)
+        return _save_all(recipe, folder, name, csv, fgr, cif, **kwargs)
 
     return save_all
 
 
 def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, fgr: str = None, cif: str = None,
-              **kwargs: dict) -> str:
+              **kwargs) -> str:
     """
     Save fitting results, fitted PDFs and refined structures to files in one folder and save information in DataFrames.
     The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in info.
+
     Parameters
     ----------
     recipe
@@ -415,7 +457,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
     name = os.path.join(folder, name)
 
     csv_file = save_csv(recipe, name)
-    csv_info = dict(file=csv_file, rw=recipe.res.rw, name=recipe.name, **kwargs)
+    csv_info = dict(uid=uid, file=csv_file, rw=recipe.res.rw, name=recipe.name, **kwargs)
     if csv:
         update(csv=csv, csv_info=csv_info)
     else:
@@ -424,7 +466,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
     for config in recipe.configs:
         con = getattr(recipe, config.name)
         fgr_file = save_fgr(con, base_name=name, rw=recipe.res.rw)
-        fgr_info = dict(file=fgr_file, name=recipe.name, rw=recipe.res.rw, **kwargs)
+        fgr_info = dict(uid=uid, file=fgr_file, name=recipe.name, rw=recipe.res.rw, **kwargs)
         if fgr:
             update(fgr=fgr, fgr_info=fgr_info)
         else:
@@ -433,7 +475,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
         for gconfig in config.phases:
             gen = getattr(con, gconfig.name)
             cif_file = save_cif(gen, base_name=name, con_name=config.name)
-            cif_info = dict(file=cif_file, name=recipe.name, rw=recipe.res.rw, **kwargs)
+            cif_info = dict(uid=uid, file=cif_file, name=recipe.name, rw=recipe.res.rw, **kwargs)
             if cif:
                 update(cif=cif, cif_info=cif_info)
             else:
@@ -446,6 +488,7 @@ def update(csv_info: dict = None, fgr_info: dict = None, cif_info: dict = None, 
            fgr: str = None, cif: str = None) -> None:
     """
     Update the information DataFrame using information stored in recipe.
+
     Parameters
     ----------
     csv_info
@@ -478,4 +521,124 @@ def update(csv_info: dict = None, fgr_info: dict = None, cif_info: dict = None, 
                 Warning(f"The information cannot be saved because '{db}' is None.")
         else:
             continue
+    return
+
+
+def load_default(csv_file: str):
+    """
+    Load the default value as a dictionary from the csv file of fitting results.
+
+    Parameters
+    ----------
+    csv_file
+        The path to the csv file.
+
+    Returns
+    -------
+    default_val_dict
+        A dictionary of variable names and its default values.
+    """
+    default_val_dict = pd.read_csv(csv_file, index_col=0)['val'].to_dict()
+    return default_val_dict
+
+
+def sgconstrain(recipe: MyRecipe, gen: Union[PDFGenerator, DebyePDFGenerator], sg: Union[int, str],
+                dv: Dict[str, float] = None, scatterers: List = None) -> None:
+    """
+    Constrain the generator by space group. The constrained parameters are scale, delta2, lattice parameters, ADPs and
+    xyz coordinates. The lattice constants and xyz coordinates are constrained by space group while the ADPs are
+    constrained by elements. All paramters will be added as '{par.name}_{gen.name}'
+
+    The default values, ranges and tags for parameters:
+        scale: 0, (0, inf), scale_{gen.name}
+        delta2: 0, (0, inf), delta2_{gen.name}
+        lat: par.value, (par.value +/- 20%), lat_{gen.name}
+        adp: 0.006, (0, inf), adp_{gen.name}
+        xyz: par.value, (par.value +/- 0.2), xyz_{gen.name}
+
+    Parameters
+    ----------
+    recipe
+        The recipe to add variables.
+    gen
+        The generator to constrain.
+    sg
+        The space group. The expression can be the string or integer.
+    dv
+        The default value of the constrained parameters.
+    scatterers
+        The argument scatters of the constrainAsSpaceGroup.
+
+    Returns
+    -------
+    None
+
+    """
+    dv = dv if dv else {}
+    # add scale
+    name = f'scale_{gen.name}'
+    recipe.addVar(gen.scale, name=name, value=dv.get(name, 0.)).boundRange(0., np.inf)
+    # add delta2
+    name = f'delta2_{gen.name}'
+    recipe.addVar(gen.delta2, name=name, value=dv.get(name, 0.)).boundRange(0., np.inf)
+
+    # constrain lat
+    sgpars = constrainAsSpaceGroup(gen.phase, sg, constrainadps=False, scatterers=scatterers)
+    for par in sgpars.latpars:
+        name = f'{par.name}_{gen.name}'
+        tag = f'lat_{gen.name}'
+        recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(par.value * 0.2)
+
+    # constrain adp
+    atoms = gen.phase.getScatterers()
+    elements = Counter([atom.element for atom in atoms]).keys()
+    adp = {element: recipe.newVar(f'Uiso_{element}_{gen.name}',
+                                  value=dv.get(f'Uiso_{element}_{gen.name}', 0.006),
+                                  tag=f'adp_{gen.name}').boundRange(0., np.inf)
+           for element in elements}
+    for atom in atoms:
+        recipe.constrain(atom.Uiso, adp[atom.element])
+
+    # constrain xyz
+    for par in sgpars.xyzpars:
+        name = f'{par.name}_{gen.name}'
+        tag = f'xyz_{gen.name}'
+        recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(0.2)
+
+    return
+
+
+def free_and_fit(recipe: MyRecipe, *tags, **kwargs) -> None:
+    """
+    First fix all variables and then free the variables one by one and fit the recipe.
+
+    Parameters
+    ----------
+    recipe
+        The recipe to fit.
+    tags
+        The tags of variables to free. It can be single string or a tuple of strings.
+    kwargs
+        The kwargs of the 'fit'.
+
+    Returns
+    -------
+    None
+
+    """
+    print(f"Fit '{recipe.name}': ")
+    recipe.fix('all')
+    for n, tag in enumerate(tags):
+        if isinstance(tag, tuple):
+            print("Free " + ', '.join(tag) + ' ...')
+            recipe.free(*tag)
+        elif isinstance(tag, str):
+            print(f"Free {tag} ...")
+            recipe.free(tag)
+        else:
+            raise TypeError(f"Unknown tag type: {type(tag)}")
+        if n == len(tags) - 1 and not '_print' in kwargs:
+            fit(recipe, _print=True, **kwargs)
+        else:
+            fit(recipe, **kwargs)
     return

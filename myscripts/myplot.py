@@ -1,7 +1,7 @@
 from myscripts.helper import *
 
 
-__all__ = ['compare_data', 'compare_panel', 'plot_gr', 'plot_fgr', 'plot_axfgr', 'plot_panel']
+__all__ = ['compare_data', 'compare_panel', 'plot_gr', 'plot_fgr', 'plot_axfgr', 'plot_panel', 'plot_iq']
 
 
 def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, diff=False):
@@ -35,7 +35,7 @@ def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, d
     else:
         pass
     # initiate figure
-    fig = plt.figure()
+    fig = plt.gcf()
     ax = fig.add_subplot(111)
     # plot
     lines = add_solidlines(ax, xs, ys)
@@ -43,9 +43,12 @@ def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, d
     if diff:
         assert len(files) == 2, f"diff is only valid for two files but input is {len(files)} files"
         xdiffs = [xs[0]]
-        ydiffs = [ys[1] - ys[0]]
+        ydiffs = [ys[0] - ys[1]]
         offset_fgr(ys, ys, ydiffs)
-        _ = add_solidlines(ax, xdiffs, ydiffs)
+        iternames = iter(names)
+        name1 = next(iternames)
+        name2 = next(iternames)
+        plt.plot(xdiffs[0], ydiffs[0], label=f'difference between {name1} and {name2}')
     # colors
     if colors is not None:
         paint_color(lines, colors)
@@ -101,7 +104,7 @@ def compare_panel(files, rlim, names=None, colors=None, normal=False, **kwargs):
     # split data
     rs0, gs0, rs1, gs1 = split_gr(rs, gs, rlim)
     # initiate figure
-    fig = plt.figure()
+    fig = plt.gcf()
     rct = (.1, .1, .8, .8)
     ax0, ax1 = split_horizontal(fig, rct, frac)
     ax2 = fig.add_axes(rct, frameon=False)
@@ -143,6 +146,8 @@ def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
            style: a string to choose plotting curve style. It can be "o" for empty circle and "-" for solid lines.
                   Default is "-".
            apos: a tuple of two floats as fractional posistion of annotation in data frame. Default is (.7, .3).
+           spacing: (float) the spacing of data-difference and difference-data in data value. Default is 0.
+
     :return: a matpotlib figure object.
     """
     files = check_files(files)
@@ -151,6 +156,7 @@ def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     colors = check_colors(colors, len(files))
     style = kwargs.get("style", "-")
     apos = kwargs.get("apos", (.7, .3))
+    spacing = kwargs.get("spacing", 0.)
 
     rs, gs = load_gr(files)
 
@@ -164,10 +170,9 @@ def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     else:
         pass
 
-    shift_data(gs)
+    shift_data(gs, spacing)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    ax = plt.gca()
 
     if style == "o":
         lines = add_circlines(ax, rs, gs)
@@ -186,6 +191,76 @@ def plot_gr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
         pass
 
     config_ax(ax, rlim, None, r'r ($\AA$)', r'G ($\AA^{-2}$)')
+
+    return
+
+
+def plot_iq(files, qlim=None, names=None, colors=None, normal=False, **kwargs):
+    """
+    waterfall plot q vs. i in empty circles.
+    :param files: a list of strings that are paths to the data files.
+    :param qlim: a tuple of two floats that are endpoints of data.
+    :param names: a list of strings that are annotations for lines.
+                  If names is empty list, no names are added, elif names is None, names are file names.
+    :param colors: a list of strings that are hex values starting with "#" for colors.
+    :param normal: a bool value to turn on and off the normalization for data. Default is False.
+    :param kwargs: kwargs for plot settings. They are
+           style: a string to choose plotting curve style. It can be "o" for empty circle and "-" for solid lines.
+                  Default is "-".
+           apos: a tuple of two floats as fractional posistion of annotation in data frame. Default is (.7, .3).
+           shifts: self-defined shiftting values for each data. If None, auto shift. Default None.
+           frac: fraction of shifting. shifting amount will be frac * (max - min). Default 0.5.
+    :return: a matpotlib figure object.
+    """
+    files = check_files(files)
+    qlim = check_lim(qlim, 2)
+    names = check_names(names, files)
+    colors = check_colors(colors, len(files))
+    style = kwargs.get("style", "-")
+    apos = kwargs.get("apos", (.7, .3))
+    shifts = kwargs.get("shifts", None)
+    frac = kwargs.get("frac", 0.5)
+
+    xs, ys = load_gr(files)
+
+    if qlim:
+        xs, ys = slice_data(xs, ys, qlim)
+    else:
+        pass
+
+    if normal:
+        ys = normalized(ys)
+    else:
+        pass
+
+    if shifts:
+        pass
+    else:
+        shifts = [0.] * len(ys)
+        for n in range(1, len(ys)):
+            shifts[n] = shifts[n-1] - frac * (ys[n].max() - ys[n - 1].min())
+    for y, shift in zip(ys, shifts):
+        y += shift
+
+    ax = plt.gca()
+
+    if style == "o":
+        lines = add_circlines(ax, xs, ys)
+    elif style == "-":
+        lines = add_solidlines(ax, xs, ys)
+    else:
+        raise ValueError("Unknown style: {}".format(style))
+
+    poss = calc_poss(xs, ys, apos)
+    anns = annotate_plots(ax, names, poss)
+
+    if colors is not None:
+        paint_color(lines, colors)
+        paint_color(anns, colors)
+    else:
+        pass
+
+    config_ax(ax, qlim, None, r'Q ($\AA^{-1}$)', r'I (A. U.)')
 
     return
 
@@ -240,7 +315,7 @@ def plot_panel(files, rlim, names=None, colors=None, normal=False, **kwargs):
     shift_data(gs0)
     shift_data(gs1)
     # initiate figure
-    fig = plt.figure()
+    fig = plt.gcf()
     rct = (.1, .1, .8, .8)
     ax0, ax1 = split_horizontal(fig, rct, frac)
     ax2 = fig.add_axes(rct, frameon=False)
@@ -292,7 +367,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
         spacing: (float) the spacing of data-difference and difference-data in data value.
                  Default is 0.
         apos: (Tuple[float, float])position of annotation in data frame.
-              Default is (.7 .3)
+              Default is (.7 .5)
         auto_rw: (bool) choose if the rw is automatically read and added to the annotation. Default is False.
         rwpos: (string) choose how rw is attached to the names. Default is "\n".
     :return: a matpotlib figure object.
@@ -307,7 +382,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     options = ["spacing", "apos", "auto_rw", "rwpos", "rws", "res_scale"]
     check_kwargs(kwargs, options)
     spacing = kwargs.get("spacing", 0.)
-    apos = kwargs.get("apos", (.7, .3))
+    apos = kwargs.get("apos", (.7, .5))
     auto_rw = kwargs.get("auto_rw", False)
     rwpos = kwargs.get("rwpos", "\n")
     rws = kwargs.get("rws", None)
@@ -348,17 +423,16 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
     shift_fgr(gs, gcalcs, gdiffs, gzeros, spacing)
 
     # initiate figure
-    fig = plt.gcf()
     ax = plt.gca()
 
     # initiate lines
-    ldatas, lcalcs, ldiffs, lzeros = add_fgrlines(ax, rs, gs, gcalcs, gdiffs, gzeros)
+    ldatas, lcalcs, ldiffs, lzeros, fill_areas = add_fgrlines(ax, rs, gs, gcalcs, gdiffs, gzeros)
 
     # add annotations
     if apos is None:
         pass
     else:
-        poss = calc_poss(rs, gs, apos)
+        poss = calc_poss_fgr(rs, gs, gcalcs, gdiffs, apos)
         anns = annotate_plots(ax, names, poss)
         if colors is None:
             pass
@@ -373,6 +447,7 @@ def plot_fgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs):
         comp_colors = get_comp(colors)
         paint_color(lcalcs, comp_colors)
         paint_color(ldiffs, colors)
+        paint_color(fill_areas, colors)
 
     # configure axes
     config_ax(ax, rlim, None, r"r ($\AA$)", r"G ($\AA^{-2}$)")
@@ -452,12 +527,12 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
     gzeros = offset_fgr(gs, gcalcs, gdiffs, spacing)
 
     # initiate figure
-    fig = plt.figure()
+    fig = plt.gcf()
     rct = (.1, .1, .8, .8)
     axs = add_axes(fig, rct, len(files))
 
     # initiate lines
-    ldatas, lcalcs, ldiffs, lzeros = add_fgrlines(axs, rs, gs, gcalcs, gdiffs, gzeros)
+    ldatas, lcalcs, ldiffs, lzeros, fill_areas = add_fgrlines(axs, rs, gs, gcalcs, gdiffs, gzeros)
 
     # add annotations
     poss = calc_eachposs(rs, gs, apos)
@@ -470,6 +545,7 @@ def plot_axfgr(files, rlim=None, names=None, colors=None, normal=False, **kwargs
         comp_colors = get_comp(colors)
         paint_color(lcalcs, comp_colors)
         paint_color(ldiffs, colors)
+        paint_color(fill_areas, colors)
     else:
         pass
 
