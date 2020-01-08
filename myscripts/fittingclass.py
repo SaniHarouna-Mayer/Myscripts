@@ -183,12 +183,11 @@ class MyRecipe(FitRecipe):
     name
         name of the recipe. It will be saved if 'save' is used. Default None.
     """
-    def __init__(self, configs: Tuple[ConConfig], name=None):
+    def __init__(self, configs: Tuple[ConConfig]):
         """Initiate the class."""
         super().__init__()
         self.configs = configs
         self.res = None
-        self.name = name
 
 
 def _make_list(item) -> list:

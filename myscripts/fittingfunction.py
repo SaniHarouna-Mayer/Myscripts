@@ -7,7 +7,7 @@ from typing import Tuple, Union, List, Dict
 from scipy.optimize import least_squares
 from uuid import uuid4
 from collections import Counter
-from  diffpy.structure import  Structure
+from diffpy.structure import Structure
 from diffpy.srfit.structure.sgconstraints import constrainAsSpaceGroup
 import diffpy.srfit.pdf.characteristicfunctions as characteristicfunctions
 from diffpy.structure import loadStructure
@@ -15,7 +15,6 @@ from diffpy.srfit.pdf import PDFGenerator, DebyePDFGenerator, PDFParser
 from diffpy.srfit.fitbase import Profile, FitContribution, FitResults
 from diffpy.utils.parsers.loaddata import loadData
 from myscripts.fittingclass import GenConfig, ConConfig, MyRecipe
-from deprecated import deprecated
 
 
 __all__ = ["make_profile", "make_generator", "make", "fit", "gen_save_all", "save", "F", "plot",
@@ -124,7 +123,7 @@ def make_contribution(config: ConConfig) -> FitContribution:
     return contribution
 
 
-def make(*configs: ConConfig, name: str = None, weights: List[float] = None) -> MyRecipe:
+def make(*configs: ConConfig, weights: List[float] = None) -> MyRecipe:
     """
     Make a FitRecipe based on single or multiple ConConfig.
 
@@ -132,8 +131,6 @@ def make(*configs: ConConfig, name: str = None, weights: List[float] = None) -> 
     ----------
     configs
         The configurations of single or multiple FitContribution.
-    name
-        The name of the recipe. Default None.
     weights
         The weights for the evaluation of each FitContribution. It should have the same length as the number of
         ConConfigs.
@@ -144,8 +141,7 @@ def make(*configs: ConConfig, name: str = None, weights: List[float] = None) -> 
         MyRecipe built from ConConfigs.
 
     """
-    name = name if name else "unnamed"
-    recipe = MyRecipe(configs=configs, name=name)
+    recipe = MyRecipe(configs=configs)
     if weights is None:
         weights = [1. / len(configs)] * len(configs)
     else:
@@ -188,19 +184,19 @@ def calc(gen: Union[PDFGenerator, DebyePDFGenerator],
     return
 
 
-def _make_df(recipe: MyRecipe) -> pd.DataFrame:
+def _make_df(recipe: MyRecipe) -> Tuple[pd.DataFrame, FitResults]:
     """
-    get Rw and fitting parameter values from recipe and make them a pandas dataframe
+
     :param recipe: fit recipe.
     :return:
     """
     df = pd.DataFrame()
-    res = recipe.res = FitResults(recipe)
+    res = FitResults(recipe)
     df["name"] = ["Rw", "half_chi2"] + res.varnames
     df["val"] = [res.rw, res.chi2 / 2] + res.varvals.tolist()
-    df["std"] = [0, 0] + res.varunc
+    df["std"] = [np.nan, np.nan] + res.varunc
     df = df.set_index("name")
-    return df
+    return df, res
 
 
 def fit(recipe: MyRecipe, **kwargs) -> None:
@@ -280,7 +276,6 @@ def plot(contribution: FitContribution, ax: plt.Axes = None) -> None:
     return
 
 
-@deprecated(version='1.0', reason="This function is deprecated.")
 def save(recipe: MyRecipe, con_names: Union[str, List[str]], base_name: str) -> Tuple[str, Union[List[str], str]]:
     """
     save fitting result and fitted gr. the fitting result will be saved as csv file with name same as the file_name.
@@ -452,7 +447,7 @@ def _save_all(recipe: MyRecipe, folder: str, name: str = None, csv: str = None, 
         string of Uid.
     """
     print(f"Saving files of results from {recipe.name}...\n")
-    uid = str(uuid4())[:4]
+    uid = str(uuid4())[:8]
     name = f"{name}_{uid}" if name else f"{recipe.name}_{uid}"
     name = os.path.join(folder, name)
 
