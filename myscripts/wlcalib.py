@@ -162,10 +162,10 @@ def default_refine(gr_file: str, res_dir: str, stru_file: str = None) -> Tuple[f
     file_name_base = os.path.splitext(os.path.basename(gr_file))[0]
     print(f"Refine {file_name_base}, please wait ...")
 
-    default_stru_file = "/Users/sst/project/cal_and_int/Ni.cif"
+    default_stru_file = "../tests/Ni.cif"
     stru_file = stru_file if stru_file else default_stru_file
     ni = GenConfig("Ni", stru_file, ncpu=4)
-    config_ni = ConConfig(name="one_phase", data_file=gr_file, fit_range=(1., 60., .01), eq="Ni", phases=ni,
+    config_ni = ConConfig(name="one_phase", data_id=0, data_file=gr_file, fit_range=(1., 60., .01), eq="Ni", phases=ni,
                           qparams=(0.04, 0.02))
     recipe = make(config_ni)
 
@@ -196,7 +196,7 @@ def default_refine(gr_file: str, res_dir: str, stru_file: str = None) -> Tuple[f
 
     rw = float(FitResults(recipe).rw)
     base_name = os.path.join(res_dir, file_name_base)
-    csv_file, fgr_file = save(recipe, "one_phase", base_name)
+    csv_file, fgr_file = old_save(recipe, "one_phase", base_name)
 
     plot(recipe.one_phase)
     plt.title(f"Ni fitting (Rw = {rw:.3f})")

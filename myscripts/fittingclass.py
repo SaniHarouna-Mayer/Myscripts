@@ -42,9 +42,9 @@ class GenConfig:
             ncpu : int
                 number of parallel computing cores for the generator. If None, no parallel. Default None.
         """
+        self.check(kwargs)
         self.name = name
         self.stru_file = stru_file
-        self.check(kwargs)
         self.periodic = kwargs.get("periodic", self.is_periodic(stru_file))
         self.debye = kwargs.get("debye", not self.periodic)
         self.ncpu = kwargs.get("ncpu", None)
@@ -84,6 +84,25 @@ class GenConfig:
                 raise KeyError(f"Unknown keyword: {key}")
         return
 
+    def to_dict(self) -> dict:
+        """
+        Parse the GenConfig as a dictionary. The keys include: gen_name, stru_file, debye, periodic, ncpu.
+
+        Returns
+        -------
+        config_dct
+            A dictionary of generator configuration.
+
+        """
+        config_dct = {
+            'gen_name': self.name,
+            'stru_file': self.stru_file,
+            'debye': self.debye,
+            'periodic': self.periodic,
+            'ncpu': self.ncpu,
+        }
+        return config_dct
+
 
 class FunConfig:
     """
@@ -120,6 +139,8 @@ class ConConfig:
     ----------
         name
             the name of Fitcontribution.
+        data_id
+            The id of the data. It will be used as a foreign key when the results are saved.
         data_file
             path to the data file.
         fit_range
@@ -139,6 +160,7 @@ class ConConfig:
     """
     def __init__(self,
                  name: str,
+                 data_id: int,
                  data_file: str,
                  fit_range: Tuple[float, float, float],
                  qparams: Tuple[float, float],
@@ -148,26 +170,68 @@ class ConConfig:
                  base_lines: Union[Callable, List[Callable]] = (),
                  res_eq: str = "chiv"):
         """
-        initiate Model object, which is used to make the Fitcontribution.
-        :param name: name for the model. it will be used as name of Fitcontribution.
-        :param data_file: path to the data file.
-        :param fit_range: rmin, rmax, rstep for fitting.
-        :param qparams: qdamp, qbroad from calibration.
-        :param eq: equation string for the Fitcontribution.
-        :param phases: single or a list of Phase object. Default empty tuple.
-        :param functions: single or a list of Function object. Default empty tuple.
-        :param base_lines: single or a list of Generator of base line. Default empty tuple.
-        :param res_eq: string residual equation. Default "chiv".
+        Initiate the instance.
+
+        Parameters
+        ----------
+        name
+            the name of Fitcontribution.
+        data_id
+            The id of the data. It will be used as a foreign key when the results are saved.
+        data_file
+            path to the data file.
+        fit_range
+            rmin, rmax, rstep for fitting.
+        qparams
+            qdamp, qbroad from calibration.
+        eq
+            equation string for the Fitcontribution.
+        phases
+            single or a list of GenConfig object. Default empty tuple.
+        functions
+            single or a list of FunConfig object. Default empty tuple.
+        base_lines
+            single or a list of Generator instance of base line. Default empty tuple.
+        res_eq
+            string residual equation. Default "chiv".
         """
         self.name: str = name
-        self.eq: str = eq
+        self.data_id: int = data_id
         self.data_file: str = data_file
         self.fit_range: Tuple[float, float, float] = fit_range
         self.qparams: Tuple[float, float] = qparams
+        self.eq: str = eq
         self.phases: List[GenConfig] = _make_list(phases)
         self.functions: List[FunConfig] = _make_list(functions)
         self.base_lines: List[ProfileGenerator] = _make_list(base_lines)
         self.res_eq: str = res_eq
+
+    def to_dict(self) -> dict:
+        """
+        Parse the ConConfig to a dictionary. The keys will include: con_name, data_id, data_file, rmin, rmax, dr, qdamp,
+        qbroad, eq, phases, functions, base_lines, res_eq.
+
+        Returns
+        -------
+        config_dct
+            A dictionary of configuration of FitContribution.
+        """
+        config_dct = {
+            'con_name': self.name,
+            'data_id': self.data_id,
+            'data_file': self.data_file,
+            'rmin': self.fit_range[0],
+            'rmax': self.fit_range[1],
+            'dr': self.fit_range[2],
+            'qdamp': self.qparams[0],
+            'qbroad': self.qparams[1],
+            'eq': self.eq,
+            'phases': ', '.join([gen.name for gen in self.phases]),
+            'functions': ', '.join([fun.name for fun in self.functions]),
+            'baselines': ', '.join([bl.name for bl in self.base_lines]),
+            'res_eq': self.res_eq
+        }
+        return config_dct
 
 
 class MyRecipe(FitRecipe):
@@ -178,16 +242,11 @@ class MyRecipe(FitRecipe):
     ----------
     configs
         single or multiple configurations to initiate the contributions in recipe.
-    res
-        FitResult. Updated when FitResult is called. Default None.
-    name
-        name of the recipe. It will be saved if 'save' is used. Default None.
     """
     def __init__(self, configs: Tuple[ConConfig]):
         """Initiate the class."""
         super().__init__()
         self.configs = configs
-        self.res = None
 
 
 def _make_list(item) -> list:
