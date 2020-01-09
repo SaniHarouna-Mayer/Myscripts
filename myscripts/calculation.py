@@ -22,23 +22,20 @@ def calc_fs_from_stru_files(*stru_files: str, qa=0) -> List[float]:
     return fs
 
 
-def calc_fs_from_comps(*comps: Dict[str, int], qa=0) -> List[float]:
+def calc_fs_from_comps(*comps: Formula, qa=0) -> List[float]:
     """Calculate the compositional average scattering factor from the compositions."""
-    return [SFAverage.fromComposition(comp, XTB, qa).f1avg for comp in comps]
+    def to_dict(f: Formula):
+        dct = {}
+        c = f.composition()
+        for tup in c:
+            dct[tup[0]] = tup[1]
+        return dct
+    return [SFAverage.fromComposition(to_dict(comp), XTB, qa).f1avg for comp in comps]
 
 
-def calc_molar_masses(*comps: Dict[str, int]) -> List[float]:
+def calc_molar_masses(*comps: Formula) -> List[float]:
     """Calculate the molar masses from the compositions."""
-    def to_string(dct: Dict[str, float]):
-        return ''.join([f'{key}{value}' for key, value in dct.items()])
-
-    masses = []
-    for comp in comps:
-        comp_str = to_string(comp)
-        mass = Formula(comp_str).mass
-        masses.append(mass)
-
-    return masses
+    return [comp.mass for comp in comps]
 
 
 def molar_fraction(scale: Series, stru_files: Iterable[str] = None) -> Series:
@@ -71,7 +68,7 @@ def molar_fraction(scale: Series, stru_files: Iterable[str] = None) -> Series:
     return frac
 
 
-def weight_ratio(scale: Series, compositions: List[Dict[str, int]]) -> Series:
+def weight_ratio(scale: Series, compositions: List[str]) -> Series:
     """
     Calculate the molar fractions of phases based on its scale factors and compositions or structures.
 
@@ -94,9 +91,10 @@ def weight_ratio(scale: Series, compositions: List[Dict[str, int]]) -> Series:
     >>> weight_ratio(scale, compositions)
 
     """
-    f = calc_fs_from_comps(*compositions)
+    formulas = [Formula(composition) for composition in compositions]
+    f = calc_fs_from_comps(*formulas)
     f1avg = Series(f, index=scale.index)
-    m = calc_molar_masses(*compositions)
+    m = calc_molar_masses(*formulas)
     mass = Series(m, index=scale.index)
 
     ratio = scale / f1avg.pow(2)
