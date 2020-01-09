@@ -540,7 +540,7 @@ def load_default(csv_file: str):
     return default_val_dict
 
 
-def sgconstrain(recipe: MyRecipe, gen: Union[PDFGenerator, DebyePDFGenerator], sg: Union[int, str],
+def sgconstrain(recipe: MyRecipe, gen_name: str, sg: Union[int, str] = None,
                 dv: Dict[str, float] = None, scatterers: List = None) -> None:
     """
     Constrain the generator by space group. The constrained parameters are scale, delta2, lattice parameters, ADPs and
@@ -558,19 +558,18 @@ def sgconstrain(recipe: MyRecipe, gen: Union[PDFGenerator, DebyePDFGenerator], s
     ----------
     recipe
         The recipe to add variables.
-    gen
-        The generator to constrain.
+    gen_name
+        The name of the generator to constrain. It assumes the generators in the recipe have unique name.
     sg
-        The space group. The expression can be the string or integer.
+        The space group. The expression can be the string or integer. If None, use the space group in GenConfig.
     dv
-        The default value of the constrained parameters.
+        The default value of the constrained parameters. If None, the default values will be used.
     scatterers
-        The argument scatters of the constrainAsSpaceGroup.
+        The argument scatters of the constrainAsSpaceGroup. If None, None will be used.
 
     Returns
     -------
     None
-
     """
     dv = dv if dv else {}
     # add scale

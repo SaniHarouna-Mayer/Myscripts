@@ -20,6 +20,8 @@ class GenConfig:
         If the structure if periodic. Default if cif or stru, True else False.
     debye : bool
         Use DebyePDFGenerator or PDFGenerator. Default: if periodic, False else True
+    sg : Union[int, str]
+        The spacegroup of the structure. If int, it is the space group number. If string, it is the name in H-M.
     ncpu : int
         number of parallel computing cores for the generator. If None, no parallel. Default None.
 
@@ -39,6 +41,9 @@ class GenConfig:
                 If the structure if periodic. Default if cif or stru, True else False.
             debye : bool
                 Use DebyePDFGenerator or PDFGenerator. Default: if periodic, False else True
+            sg : int, str
+                The spacegroup of the structure. Either spacegroup number or name in H-M. Default: read spacegroup
+                number and then spacegroup name from the stru_file. If not found, use 1, which is 'P 1' symmetry.
             ncpu : int
                 number of parallel computing cores for the generator. If None, no parallel. Default None.
         """
@@ -47,6 +52,7 @@ class GenConfig:
         self.stru_file = stru_file
         self.periodic = kwargs.get("periodic", self.is_periodic(stru_file))
         self.debye = kwargs.get("debye", not self.periodic)
+        self.sg = kwargs.get("sg", self.read_sg(stru_file))
         self.ncpu = kwargs.get("ncpu", None)
 
     @staticmethod
@@ -102,6 +108,43 @@ class GenConfig:
             'ncpu': self.ncpu,
         }
         return config_dct
+
+    @staticmethod
+    def read_sg(stru_file: str) -> Union[int, str]:
+        """
+        Read the spacegroup number from the structure file. If not found, read the spacegroup name. If not found, return
+        1.
+
+        Parameters
+        ----------
+        stru_file : str
+            The path to the structure file.
+
+        Returns
+        -------
+        sg : int, str
+        """
+        sg_num = None
+        sg_str = None
+        with open(stru_file, 'r') as f:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                if '_symmetry_int_tables_number' in line.lower():
+                    sg_num = int(line.split()[1])  # second word converted to int
+                    break
+                if '_symmetry_space_group_name_h-m' in line.lower():
+                    sg_str = line.split()[1].strip('\'\"')  # second word without quotes
+
+        if sg_num:
+            sg = sg_num
+        elif sg_str:
+            sg = sg_str
+        else:
+            sg = 1
+
+        return sg
 
 
 class FunConfig:
