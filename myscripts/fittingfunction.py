@@ -540,7 +540,7 @@ def load_default(csv_file: str):
     return default_val_dict
 
 
-def sgconstrain(recipe: MyRecipe, gen_name: str, sg: Union[int, str] = None,
+def sgconstrain(recipe: MyRecipe, gen: Union[PDFGenerator, DebyePDFGenerator], sg: Union[int, str],
                 dv: Dict[str, float] = None, scatterers: List = None) -> None:
     """
     Constrain the generator by space group. The constrained parameters are scale, delta2, lattice parameters, ADPs and
@@ -558,8 +558,8 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, sg: Union[int, str] = None,
     ----------
     recipe
         The recipe to add variables.
-    gen_name
-        The name of the generator to constrain. It assumes the generators in the recipe have unique name.
+    gen
+        The generator to constrain. The generator must have StructureParameterSet.
     sg
         The space group. The expression can be the string or integer. If None, use the space group in GenConfig.
     dv
@@ -579,14 +579,17 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, sg: Union[int, str] = None,
     name = f'delta2_{gen.name}'
     recipe.addVar(gen.delta2, name=name, value=dv.get(name, 0.)).boundRange(0., np.inf)
 
-    # constrain lat
+    # constrain by spacegroup
     sgpars = constrainAsSpaceGroup(gen.phase, sg, constrainadps=False, scatterers=scatterers)
+    print(f"Constrain '{gen.name}' by space group '{sg}' without constraining ADPs.")
+
+    # add latpars
     for par in sgpars.latpars:
         name = f'{par.name}_{gen.name}'
         tag = f'lat_{gen.name}'
         recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(par.value * 0.2)
 
-    # constrain adp
+    # constrain adps
     atoms = gen.phase.getScatterers()
     elements = Counter([atom.element for atom in atoms]).keys()
     adp = {element: recipe.newVar(f'Uiso_{element}_{gen.name}',
@@ -596,7 +599,7 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, sg: Union[int, str] = None,
     for atom in atoms:
         recipe.constrain(atom.Uiso, adp[atom.element])
 
-    # constrain xyz
+    # add xyzpars
     for par in sgpars.xyzpars:
         name = f'{par.name}_{gen.name}'
         tag = f'xyz_{gen.name}'
