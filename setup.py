@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="myscripts-st",
-    version="0.1",
+    version="1.5",
     author="Songsheng Tao",
     author_email="songshengtao1@gmail.com",
     description="My frequently used scripts in PDF analysis",
