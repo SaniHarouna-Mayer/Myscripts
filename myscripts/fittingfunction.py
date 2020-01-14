@@ -538,7 +538,7 @@ def load_default(csv_file: str):
     return default_val_dict
 
 
-def sgconstrain(recipe: MyRecipe, gen: Union[PDFGenerator, DebyePDFGenerator], sg: Union[int, str],
+def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union[int, str] = None,
                 dv: Dict[str, float] = None, scatterers: List = None) -> None:
     """
     Constrain the generator by space group. The constrained parameters are scale, delta2, lattice parameters, ADPs and
@@ -556,20 +556,47 @@ def sgconstrain(recipe: MyRecipe, gen: Union[PDFGenerator, DebyePDFGenerator], s
     ----------
     recipe
         The recipe to add variables.
-    gen
-        The generator to constrain. The generator must have StructureParameterSet.
+    gen_name
+        The name of the PDFGenerator to constrain.
+    con_name
+        The name of the FitContribution where the PDFGenerator is in. If None, get it according to the name of the first
+        ConConfig in 'recipe.configs'. Default None.
     sg
-        The space group. The expression can be the string or integer. If None, use the space group in GenConfig.
+        The space group. The expression can be the string or integer. If None, use the space group in GenConfig. Default
+        None.
     dv
-        The default value of the constrained parameters. If None, the default values will be used.
+        The default value of the constrained parameters. If None, the default values will be used. Default None.
     scatterers
-        The argument scatters of the constrainAsSpaceGroup. If None, None will be used.
+        The argument scatters of the constrainAsSpaceGroup. If None, None will be used. Default None.
 
     Returns
     -------
     None
     """
+    def get_config():
+        if con_name is None:
+            return recipe.configs[0]
+        for config in recipe.configs:
+            if config.name == con_name:
+                return config
+        else:
+            raise ValueError(f"No ConConfig in recipe '{recipe.name}' match the '{con_name}'.")
+
+    def get_sg():
+        config = get_config()
+        for genconfig in config.phases:
+            if genconfig.name == gen_name:
+                return genconfig.sg
+        else:
+            raise ValueError(f"No GenConfig in the FitContribution '{config.name}' match the '{gen_name}'.")
+
+    # get sg
+    if sg is None:
+        sg = get_sg()
+    # set default of variables
     dv = dv if dv else {}
+    con = getattr(recipe, con_name) if con_name else getattr(recipe, recipe.configs[0].name)
+    gen = getattr(con, gen_name)
     # add scale
     name = f'scale_{gen.name}'
     recipe.addVar(gen.scale, name=name, value=dv.get(name, 0.)).boundRange(0., np.inf)

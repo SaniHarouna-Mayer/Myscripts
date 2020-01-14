@@ -20,8 +20,7 @@ def test_fit_ni():
 
     recipe = make(config)
 
-    gen = recipe.crystal.Ni
-    sgconstrain(recipe, gen, 225)
+    sgconstrain(recipe, "Ni")
     free_and_fit(recipe, 'all')
 
     with TemporaryDirectory(dir="./") as temp_folder:
