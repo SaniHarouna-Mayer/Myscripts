@@ -236,7 +236,7 @@ def fit(recipe: MyRecipe, **kwargs) -> None:
     values = kwargs.get("values", recipe.values)
     bounds = kwargs.get("bounds", recipe.getBounds2())
     verbose = kwargs.get("verbose", 2)
-    xtol = kwargs.get("xtol", 1.E-8)
+    xtol = kwargs.get("xtol", 1.E-4)
     gtol = kwargs.get("gtol", 1.E-4)
     ftol = kwargs.get("ftol", 1.E-4)
     max_nfev = kwargs.get("max_fev", None)
@@ -246,11 +246,11 @@ def fit(recipe: MyRecipe, **kwargs) -> None:
     _print = kwargs.get("_print", False)
     if _print:
         df, res = _make_df(recipe)
-        print(f"Fitting Results of {recipe.name}")
+        print("-" * 90)
+        print(f"Results of {recipe.name}")
         print("-" * 90)
         print(df.to_string())
         print("-" * 90)
-        print("\n")
     else:
         pass
 
@@ -301,7 +301,7 @@ def old_save(recipe: MyRecipe, con_names: Union[str, List[str]], base_name: str)
     the fitted gr will be saved with name of file_name followed by index of the contribution if there are multiple
     contributions.
     :param recipe: fit recipe.
-    :param con_names: single or a list of names of fitcontribution.
+    :param con_names: single or a list of names of FitContribution.
     :param base_name: base name for the saving file.
     :return: path to saved csv file, path to saved fgr file or a list of the path to saved fgr files.
     """
@@ -420,7 +420,7 @@ def gen_save_all(folder: str, csv: str, fgr: str, cif: str):
         if not os.path.isfile(filepath):
             pd.DataFrame().to_csv(filepath)
 
-    def save_all(recipe: MyRecipe, tag: str = None):
+    def save_all(recipe: MyRecipe):
         """
         Save fitting results, fitted PDFs and refined structures to files in one folder and save information in
         DataFrames. The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in
@@ -430,20 +430,18 @@ def gen_save_all(folder: str, csv: str, fgr: str, cif: str):
         ----------
         recipe
             The FitRecipe.
-        tag
-            A tag to add in csv database.
 
         Returns
         -------
-        uid
-            The uid of the saving.
+        None
+
         """
-        return _save_all(recipe, folder, csv, fgr, cif, tag)
+        return _save_all(recipe, folder, csv, fgr, cif)
 
     return save_all
 
 
-def _save_all(recipe: MyRecipe, folder: str, csv: str, fgr: str, cif: str, tag: str = None) -> str:
+def _save_all(recipe: MyRecipe, folder: str, csv: str, fgr: str, cif: str) -> None:
     """
     Save fitting results, fitted PDFs and refined structures to files in one folder and save information in DataFrames.
     The DataFrame will contain columns: 'file' (file paths), 'rw' (Rw value) and other information in info.
@@ -463,32 +461,32 @@ def _save_all(recipe: MyRecipe, folder: str, csv: str, fgr: str, cif: str, tag: 
 
     Returns
     -------
-        string of Uid.
+    None
+
     """
-    print(f"Save {recipe.name}...\n")
+    print(f"Save {recipe.name} ...\n")
     uid = str(uuid4())[:4]
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     name = os.path.join(folder, f"{timestamp}_{uid}")
 
     csv_file, rw, half_chi2 = save_csv(recipe, name)
-    csv_info = dict(csv_file=csv_file, rw=rw, half_chi2=half_chi2, timestamp=timestamp, tag=tag)
+    csv_info = dict(recipe_name=recipe.name, rw=rw, half_chi2=half_chi2, timestamp=timestamp, csv_file=csv_file)
     recipe_id = update(csv, csv_info, id_col='recipe_id')
 
     for config in recipe.configs:
         con = getattr(recipe, config.name)
         fgr_file = save_fgr(con, base_name=name, rw=rw)
         config_info = config.to_dict()
-        fgr_info = dict(recipe_id=recipe_id, fgr_file=fgr_file, **config_info)
+        fgr_info = dict(recipe_id=recipe_id, **config_info, fgr_file=fgr_file)
         con_id = update(fgr, fgr_info, id_col='con_id')
 
         for gconfig in config.phases:
             gen = getattr(con, gconfig.name)
             cif_file = save_cif(gen, base_name=name, con_name=config.name)
             gconfig_info = gconfig.to_dict()
-            cif_info = dict(con_id=con_id, recipe_id=recipe_id, cif_file=cif_file, **gconfig_info)
+            cif_info = dict(con_id=con_id, recipe_id=recipe_id, **gconfig_info, cif_file=cif_file)
             update(cif, cif_info, id_col='gen_id')
-
-    return uid
+    return
 
 
 def update(file_path: str, info_dct: dict, id_col: str) -> int:
