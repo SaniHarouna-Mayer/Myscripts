@@ -848,7 +848,8 @@ def to_latex(df: pd.DataFrame, label="", caption="", **kwargs):
 
 
 # functions to deal with DataFrames
-def join_result(csv_files: Iterable[str], chosen_column: str = 'val', column_names: Iterable[str] = None) -> pd.DataFrame:
+def join_result(csv_files: Iterable[str], chosen_column: str = 'val', column_names: Iterable[str] = None)\
+        -> pd.DataFrame:
     """
     Join multiple csv files into a single DataFrame with specific column names.
 

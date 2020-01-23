@@ -35,7 +35,7 @@ def calc_fs_from_comps(*comps: Formula, qa=0) -> List[float]:
 
 def calc_molar_masses(*comps: Formula) -> List[float]:
     """Calculate the molar masses from the compositions."""
-    return [comp.mass for comp in comps]
+    return [comp.mass / float(comp.atoms) for comp in comps]
 
 
 def molar_fraction(scale: Series, stru_files: Iterable[str] = None) -> Series:

@@ -539,7 +539,7 @@ def load_default(csv_file: str):
 
 
 def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union[int, str] = None,
-                dv: Dict[str, float] = None, scatterers: List = None) -> None:
+                dv: Dict[str, float] = None, scatterers: List = None, constrainxyz=False) -> None:
     """
     Constrain the generator by space group. The constrained parameters are scale, delta2, lattice parameters, ADPs and
     xyz coordinates. The lattice constants and xyz coordinates are constrained by space group while the ADPs are
@@ -547,10 +547,10 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
 
     The default values, ranges and tags for parameters:
         scale: 0, (0, inf), scale_{gen.name}
-        delta2: 0, (0, inf), delta2_{gen.name}
-        lat: par.value, (par.value +/- 20%), lat_{gen.name}
-        adp: 0.006, (0, inf), adp_{gen.name}
-        xyz: par.value, (par.value +/- 0.2), xyz_{gen.name}
+        delta2: 0, (0, 5), delta2_{gen.name}
+        lat: par.value, (par.value +/- 10%), lat_{gen.name}
+        adp: 0.006, (0.001, 0.02), adp_{gen.name}
+        xyz: par.value, (par.value +/- 0.1), xyz_{gen.name}
 
     Parameters
     ----------
@@ -568,6 +568,8 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
         The default value of the constrained parameters. If None, the default values will be used. Default None.
     scatterers
         The argument scatters of the constrainAsSpaceGroup. If None, None will be used. Default None.
+    constrainxyz
+        Whether to constrain xyz coordinates.
 
     Returns
     -------
@@ -602,7 +604,7 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
     recipe.addVar(gen.scale, name=name, value=dv.get(name, 0.)).boundRange(0., np.inf)
     # add delta2
     name = f'delta2_{gen.name}'
-    recipe.addVar(gen.delta2, name=name, value=dv.get(name, 0.)).boundRange(0., np.inf)
+    recipe.addVar(gen.delta2, name=name, value=dv.get(name, 0.)).boundRange(0., 5.)
 
     # constrain by spacegroup
     sgpars = constrainAsSpaceGroup(gen.phase, sg, constrainadps=False, scatterers=scatterers)
@@ -612,23 +614,24 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
     for par in sgpars.latpars:
         name = f'{par.name}_{gen.name}'
         tag = f'lat_{gen.name}'
-        recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(par.value * 0.2)
+        recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(par.value * 0.1)
 
     # constrain adps
     atoms = gen.phase.getScatterers()
     elements = Counter([atom.element for atom in atoms]).keys()
     adp = {element: recipe.newVar(f'Uiso_{element}_{gen.name}',
                                   value=dv.get(f'Uiso_{element}_{gen.name}', 0.006),
-                                  tag=f'adp_{gen.name}').boundRange(0., np.inf)
+                                  tag=f'adp_{gen.name}').boundRange(0.001, 0.02)
            for element in elements}
     for atom in atoms:
         recipe.constrain(atom.Uiso, adp[atom.element])
 
     # add xyzpars
-    for par in sgpars.xyzpars:
-        name = f'{par.name}_{gen.name}'
-        tag = f'xyz_{gen.name}'
-        recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(0.2)
+    if constrainxyz:
+        for par in sgpars.xyzpars:
+            name = f'{par.name}_{gen.name}'
+            tag = f'xyz_{gen.name}'
+            recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(0.1)
 
     return
 
@@ -651,7 +654,7 @@ def free_and_fit(recipe: MyRecipe, *tags: Union[str, Tuple[str]], **kwargs) -> N
     None
 
     """
-    print(f"Start {recipe.name} with all parameters fixed:")
+    print(f"Start {recipe.name} with all parameters fixed.")
     recipe.fix('all')
     for n, tag in enumerate(tags):
         if isinstance(tag, tuple):
