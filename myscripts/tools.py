@@ -240,7 +240,7 @@ def convert_str(tabular_str: str) -> str:
     for old, new in str_map.items():
         tabular_str = tabular_str.replace(old, new)
 
-    table_str = "\\begin{table}[htb]\n" + \
+    table_str = "\\begin{table}[htpb]\n" + \
                 "\\caption{}\n" + \
                 "\\label{tab:}\n" + \
                 tabular_str + \
@@ -382,7 +382,7 @@ def savefig(filename, caption="", fig=None, savedir=".", fmt="pdf", print_tex=Tr
     caption = "{" + caption + "}"
     label = "{" + "fig:" + filename + "}"
     file_in_tex = "{" + filename_with_ext + "}"
-    tex = "\\begin{figure}[htb]\n" + \
+    tex = "\\begin{figure}[htpb]\n" + \
           f"\\includegraphics[width=\\columnwidth]{file_in_tex}\n" + \
           f"\\caption{caption}\n" + \
           f"\\label{label}\n" + \

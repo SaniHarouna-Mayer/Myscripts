@@ -466,7 +466,7 @@ def _save_all(recipe: MyRecipe, folder: str, csv: str, fgr: str, cif: str) -> No
     """
     print(f"Save {recipe.name} ...\n")
     uid = str(uuid4())[:4]
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     name = os.path.join(folder, f"{timestamp}_{uid}")
 
     csv_file, rw, half_chi2 = save_csv(recipe, name)
