@@ -198,22 +198,30 @@ def to_report(res_df: pd.DataFrame, phases_str: str, exclude: List[str] = None, 
     map_phase = {} if map_phase is None else map_phase
     exclude = {} if exclude is None else exclude
     phases = [phase for phase in phases_str.split(phase_del) if phase not in exclude]
+    num_col = res_df.shape[1] + 1
+
     for n, phase in enumerate(phases):
         df = res_df.filter(like=phase, axis=0).copy()
         df.rename(index=convert_index, inplace=True)
         if processing is not None:
             df = processing(df)
         phase = map_phase.get(phase, default_change(phase))
-        if n == 0:
+        phase_row = rf"\multicolumn{{{num_col}}}{{l}}{{{phase}}}\\"
+        if n == 0 and len(phases) == 1:
+            lines = to_lines(df, del_head=False, del_tail=False, escape=escape)
+            # plug in the row of the name of the phase and not take the last line '\n'
+            lines = lines[:4] + [phase_row, r'\hline'] + lines[4:-1]
+        elif n == 0 and len(phases) > 1:
             lines = to_lines(df, del_head=False, escape=escape)
-            lines = lines[:4] + [phase + r'\\', r'\hline'] + lines[4:]
+            lines = lines[:4] + [phase_row, r'\hline'] + lines[4:]
         elif n == len(phases) - 1:
             lines = to_lines(df, del_tail=False, escape=escape)
-            lines = [r'\hline', phase + r'\\', r'\hline'] + lines
+            lines = [r'\hline', phase_row, r'\hline'] + lines[:-1]
         else:
             lines = to_lines(df, escape=escape)
-            lines = [r'\hline', phase + r'\\', r'\hline'] + lines
+            lines = [r'\hline', phase_row, r'\hline'] + lines
         total_lines += lines
+
     tabular_str = '\n'.join(total_lines)
     table_str = convert_str(tabular_str)
     return table_str
@@ -239,6 +247,7 @@ def convert_str(tabular_str: str) -> str:
                r"\bottomrule": r"\hline\hline"}
     for old, new in str_map.items():
         tabular_str = tabular_str.replace(old, new)
+    tabular_str += "\n"
 
     table_str = "\\begin{table}[htpb]\n" + \
                 "\\caption{}\n" + \
