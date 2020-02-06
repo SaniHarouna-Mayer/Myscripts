@@ -15,12 +15,11 @@ from diffpy.structure import loadStructure
 from diffpy.srfit.pdf import PDFGenerator, DebyePDFGenerator, PDFParser
 from diffpy.srfit.fitbase import Profile, FitContribution, FitResults
 from diffpy.utils.parsers.loaddata import loadData
-from myscripts.fittingclass import GenConfig, ConConfig, MyRecipe
-
+from .fittingclass import GenConfig, ConConfig, MyRecipe
+from diffpy.srfit.fitbase.parameter import ParameterProxy
 
 __all__ = ["make_profile", "make_generator", "make", "fit", "old_save", "gen_save_all", "F", "plot",
-           "constrainAsSpaceGroup", "calc", "load_default", 'sgconstrain', 'free_and_fit']
-
+           "constrainAsSpaceGroup", "calc", "load_default", 'sgconstrain', "cfconstrain", 'free_and_fit']
 
 # abbreviate some useful modules and functions
 F = characteristicfunctions
@@ -38,6 +37,12 @@ def make_profile(data_file: str, fit_range: Tuple[float, float, float]) -> Profi
         The path to the data file.
     fit_range
         The tuple of (rmax, rmin, dr) in Angstrom.
+
+    Returns
+    -------
+    profile
+        The Profile with the parsed data and the calculation range.
+
     """
     profile = Profile()
     parser = PDFParser()
@@ -377,7 +382,7 @@ def save_cif(generator: Union[PDFGenerator, DebyePDFGenerator], base_name: str, 
     Parameters
     ----------
     generator
-        arbitrary number of generators.
+        a ProfileGenerator. The structure is inside the "stru" attribute in it.
     base_name
         base name for saving. The saving name will be "{base_name}_{con_name}_{generator.name}."
     con_name
@@ -538,19 +543,55 @@ def load_default(csv_file: str):
     return default_val_dict
 
 
-def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union[int, str] = None,
-                dv: Dict[str, float] = None, scatterers: List = None, constrainxyz=False) -> None:
+def cfconstrain(recipe: MyRecipe, *par_names: str, dv: Dict[str, float] = None, con_name: str = None)\
+        -> Dict[str, ParameterProxy]:
     """
-    Constrain the generator by space group. The constrained parameters are scale, delta2, lattice parameters, ADPs and
-    xyz coordinates. The lattice constants and xyz coordinates are constrained by space group while the ADPs are
-    constrained by elements. All paramters will be added as '{par.name}_{gen.name}'
+    Add parameters in the Characteristic functions in the FitContribution into the MyRecipe.
+    Return the added variables in a dictionary.
 
-    The default values, ranges and tags for parameters:
-        scale: 0, (0, inf), scale_{gen.name}
-        delta2: 0, (0, 5), delta2_{gen.name}
-        lat: par.value, (par.value +/- 10%), lat_{gen.name}
-        adp: 0.006, (0.001, 0.02), adp_{gen.name}
-        xyz: par.value, (par.value +/- 0.1), xyz_{gen.name}
+    Parameters
+    ----------
+    recipe
+        The recipe to add the parameters
+    par_names
+        Arbitrary number of the parameter names. They must be attributes of the FitContribution in recipe.
+    dv
+        The path to the .csv file contains the fitting results or the dictionary of values.
+        If None, use 100 A for any parameters as default value.
+    con_name
+        The name of the FitContribution where the parameters are. If None, use the first one in the recipe.
+
+    Returns
+    -------
+    variables
+        The dictionary mapping from the name of the variable to the variable itself.
+
+    """
+    variables = {}
+    if dv is None:
+        _dv = {}
+    elif isinstance(dv, str):
+        _dv = load_default(dv)
+    else:
+        _dv = dv
+    con_name = recipe.configs[0].name if con_name is None else con_name
+    con = getattr(recipe, con_name)
+    for par_name in par_names:
+        par = getattr(con, par_name)
+        variables[par_name] = recipe.addVar(par, value=_dv.get(par_name, 100.), tag="cf")
+    return variables
+
+
+def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union[int, str] = None,
+                dv: Union[str, Dict[str, float]] = None, scatterers: List = None, add_xyz=False)\
+        -> Dict[str, ParameterProxy]:
+    """
+    Constrain the generator by space group.
+    The constrained parameters are scale, delta2, lattice parameters, ADPs and xyz coordinates.
+    The lattice constants and xyz coordinates are constrained by space group while the ADPs are constrained by elements.
+    All paramters will be added as '{par.name}_{gen.name}'.
+    The parameters tags are scale_{gen.name}, delta2_{gen.name}, lat_{gen.name}, adp_{gen.name}, xyz_{gen.name}.
+    Return the added variables in a dictionary.
 
     Parameters
     ----------
@@ -562,19 +603,27 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
         The name of the FitContribution where the PDFGenerator is in. If None, get it according to the name of the first
         ConConfig in 'recipe.configs'. Default None.
     sg
-        The space group. The expression can be the string or integer. If None, use the space group in GenConfig. Default
-        None.
+        The space group. The expression can be the string or integer. If None, use the space group in GenConfig.
     dv
-        The default value of the constrained parameters. If None, the default values will be used. Default None.
+        The path to the .csv file contains the fitting results or the dictionary of values.
+        If None, the following values will be used:
+        scale: 0, (0, inf), scale_{gen.name}
+        delta2: 0, (0, 5), delta2_{gen.name}
+        lat: par.value, (par.value +/- 10%), lat_{gen.name}
+        adp: 0.006, (0.001, 0.02), adp_{gen.name}
+        xyz: par.value, (par.value +/- 0.1), xyz_{gen.name}
     scatterers
-        The argument scatters of the constrainAsSpaceGroup. If None, None will be used. Default None.
-    constrainxyz
-        Whether to constrain xyz coordinates.
+        The argument scatters of the constrainAsSpaceGroup. If None, None will be used.
+    add_xyz
+        Whether to constrain xyz coordinates. Default False.
 
     Returns
     -------
-    None
+    variables
+        The dictionary mapping from the name of the variable to the variable itself.
+
     """
+
     def get_config():
         if con_name is None:
             return recipe.configs[0]
@@ -582,7 +631,7 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
             if config.name == con_name:
                 return config
         else:
-            raise ValueError(f"No ConConfig in recipe '{recipe.name}' match the '{con_name}'.")
+            raise ValueError(f"No FitContribution names '{con_name}' in FitRecipe '{recipe.name}'.")
 
     def get_sg():
         config = get_config()
@@ -590,50 +639,59 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
             if genconfig.name == gen_name:
                 return genconfig.sg
         else:
-            raise ValueError(f"No GenConfig in the FitContribution '{config.name}' match the '{gen_name}'.")
+            raise ValueError(f"No ProfileGenerator names '{gen_name}' in FitContribution '{config.name}'.")
 
     # get sg
     if sg is None:
         sg = get_sg()
     # set default of variables
-    dv = dv if dv else {}
+    if dv is None:
+        _dv = {}
+    elif isinstance(dv, str):
+        _dv = load_default(dv)
+    else:
+        _dv = dv
     con = getattr(recipe, con_name) if con_name else getattr(recipe, recipe.configs[0].name)
     gen = getattr(con, gen_name)
+    # initiate variables
+    variables = {}
     # add scale
     name = f'scale_{gen.name}'
-    recipe.addVar(gen.scale, name=name, value=dv.get(name, 0.)).boundRange(0., np.inf)
+    variables[name] = recipe.addVar(gen.scale, name=name, value=_dv.get(name, 0.)).boundRange(0., np.inf)
     # add delta2
     name = f'delta2_{gen.name}'
-    recipe.addVar(gen.delta2, name=name, value=dv.get(name, 0.)).boundRange(0., 5.)
+    variables[name] = recipe.addVar(gen.delta2, name=name, value=_dv.get(name, 0.)).boundRange(0., 5.)
 
     # constrain by spacegroup
     sgpars = constrainAsSpaceGroup(gen.phase, sg, constrainadps=False, scatterers=scatterers)
     print(f"Constrain '{gen.name}' by space group '{sg}' without constraining ADPs.")
 
     # add latpars
+    tag = f'lat_{gen.name}'
     for par in sgpars.latpars:
         name = f'{par.name}_{gen.name}'
-        tag = f'lat_{gen.name}'
-        recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(par.value * 0.1)
+        variables[name] = recipe.addVar(par, name=name, value=_dv.get(name, par.value),
+                                        tag=tag).boundWindow(par.value * 0.1)
 
     # constrain adps
     atoms = gen.phase.getScatterers()
     elements = Counter([atom.element for atom in atoms]).keys()
-    adp = {element: recipe.newVar(f'Uiso_{element}_{gen.name}',
-                                  value=dv.get(f'Uiso_{element}_{gen.name}', 0.006),
-                                  tag=f'adp_{gen.name}').boundRange(0.001, 0.02)
-           for element in elements}
+    adp = {}
+    tag = f'adp_{gen.name}'
+    for element in elements:
+        name = f'Uiso_{element}_{gen.name}'
+        variables[name] = adp[element] = recipe.newVar(name, value=_dv.get(name, 0.006), tag=tag).boundRange(0.001, 0.02)
     for atom in atoms:
         recipe.constrain(atom.Uiso, adp[atom.element])
 
     # add xyzpars
-    if constrainxyz:
+    if add_xyz:
+        tag = f'xyz_{gen.name}'
         for par in sgpars.xyzpars:
             name = f'{par.name}_{gen.name}'
-            tag = f'xyz_{gen.name}'
-            recipe.addVar(par, name=name, value=dv.get(name, par.value), tag=tag).boundWindow(0.1)
+            variables[name] = recipe.addVar(par, name=name, value=_dv.get(name, par.value), tag=tag).boundWindow(0.1)
 
-    return
+    return variables
 
 
 def free_and_fit(recipe: MyRecipe, *tags: Union[str, Tuple[str]], **kwargs) -> None:
@@ -670,3 +728,7 @@ def free_and_fit(recipe: MyRecipe, *tags: Union[str, Tuple[str]], **kwargs) -> N
         else:
             fit(recipe, **kwargs)
     return
+
+
+if __name__ == "__main__":
+    pass
