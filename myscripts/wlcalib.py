@@ -10,7 +10,33 @@ from myscripts.yamlmaker import load
 from myscripts.helper import recfind
 from typing import Callable, List, Tuple
 
-__all__ = ["calib_wl", "run_pipe"]
+__all__ = ["calib_wl", "run_pipe", "PDFGETTER_CONFIG", "REFINE_CONFIG"]
+
+XPDTOOLS_CONFIG = {
+    "alpha": 2.0
+}
+
+PDFGETTER_CONFIG = {
+    "composition": "Ni",
+    "dataformat": "QA",
+    "qmin": 0.,
+    "qmax": 24.,
+    "qmaxinst": 25.,
+    "rmin": 0.,
+    "rmax": 60.,
+    "rstep": 0.01,
+    "rpoly": 2.0
+}
+
+REFINE_CONFIG = {
+    "fit_range": (1.5, 60., 0.01),
+    "stru_file": os.path.join(os.path.dirname(__file__), "data_files", "Ni.cif"),
+    "sgnum": 225,
+    "qparams": (0.02, 0.04),
+    "scale": 0.04,
+    "delta2": 2.0,
+    "uiso": 0.006
+}
 
 
 def calib_wl(tiff_file: str,
@@ -99,20 +125,20 @@ def run_pipe(tiff_file: str,
     result = dict(poni=poni_file, wl=wl)
     print(f"Run pipeline with wavelength: {wl:.4f} and poni file: {poni_file}")
 
-    result["chi"], _ = xpdtools_int(poni_file, tiff_file, chi_dir=saving_dir, alpha=2.0)
+    result["chi"], _ = xpdtools_int(poni_file, tiff_file, chi_dir=saving_dir, **XPDTOOLS_CONFIG)
 
+    print("Transform the data ...")
     pdfgetter = pdfgetter if pdfgetter else make_default_pdfgetter()
-
     chi_q, chi_i = loaddata(result["chi"]).T
     pdfgetter(chi_q, chi_i)
-    result["gr"] = os.path.splitext(result["chi"])[0] + ".gr"
-    pdfgetter.writeOutput(result["gr"], "gr")
+    visualize(pdfgetter)
+    filename = os.path.splitext(result["chi"])[0]
+    for datatype in ("iq", "sq", "fq", "gr"):
+        result[datatype] = path = filename + f".{datatype}"
+        pdfgetter.writeOutput(path, datatype)
 
-    if refine_func:
-        pass
-    else:
+    if refine_func is None:
         refine_func = default_refine
-
     result["Rw"], result["csv"], result["fgr"] = refine_func(result["gr"], saving_dir)
 
     return result
@@ -122,23 +148,12 @@ def make_default_pdfgetter() -> PDFGetter:
     """
     Create a PDFgetter with default setting for Ni.
     """
-    config = PDFConfig()
-    config.composition = "Ni"
-    config.dataformat = "QA"
-    config.qmin = 0.
-    config.qmax = 24.
-    config.qmaxinst = 25.
-    config.rmin = 0.
-    config.rmax = 60.
-    config.rstep = .01
-    config.rpoly = 0.9
-
+    config = PDFConfig(**PDFGETTER_CONFIG)
     pdfgetter = PDFGetter(config)
-
     return pdfgetter
 
 
-def default_refine(gr_file: str, res_dir: str, stru_file: str = None) -> Tuple[float, str, str]:
+def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
     """
     Refine the G(r) using a default recipe for Ni.
     Parameters
@@ -147,9 +162,7 @@ def default_refine(gr_file: str, res_dir: str, stru_file: str = None) -> Tuple[f
         Path to the gr file.
     res_dir
         Directory to save csv and fgr file.
-    stru_file
-        User defined structure file. If None, the default file will be used:
-        "/Users/sst/project/cal_and_int/Ni.cif"
+
     Returns
     -------
     rw
@@ -162,60 +175,51 @@ def default_refine(gr_file: str, res_dir: str, stru_file: str = None) -> Tuple[f
     file_name_base = os.path.splitext(os.path.basename(gr_file))[0]
     print(f"Refine {file_name_base}, please wait ...")
 
-    default_stru_file = "/Users/sst/project/Myscripts/tests/Ni.cif"
-    stru_file = stru_file if stru_file else default_stru_file
-    ni = GenConfig("Ni", stru_file, ncpu=4)
-    config_ni = ConConfig(name="one_phase", data_id=0, data_file=gr_file, fit_range=(1., 60., .01), eq="Ni", phases=ni,
-                          qparams=(0.04, 0.02))
+    default_ni_file = os.path.join(os.path.dirname(__file__), "data_files", "Ni.cif")
+    ni = GenConfig(name="Ni",
+                   stru_file=default_ni_file,
+                   ncpu=4)
+    config_ni = ConConfig(name="calibration",
+                          data_id=0,
+                          data_file=gr_file,
+                          fit_range=REFINE_CONFIG["fit_range"],
+                          eq=ni.name,
+                          phases=ni,
+                          qparams=REFINE_CONFIG["qparams"])
     recipe = make(config_ni)
 
-    con: FitContribution = recipe.one_phase
+    con: FitContribution = recipe.calibration
     gen: PDFGenerator = con.Ni
 
-    recipe.addVar(gen.scale, value=0.4)
-    recipe.addVar(gen.delta2, value=2.0)
+    recipe.addVar(gen.scale, value=REFINE_CONFIG["scale"])
+    recipe.addVar(gen.delta2, value=REFINE_CONFIG["delta2"])
     recipe.addVar(gen.qdamp)
     recipe.addVar(gen.qbroad)
-    sgpars = constrainAsSpaceGroup(gen.phase, 225)
+    sgpars = constrainAsSpaceGroup(gen.phase, REFINE_CONFIG["sgnum"])
     for par in sgpars.latpars:
         recipe.addVar(par, tag="lat")
     for par in sgpars.adppars:
-        recipe.addVar(par, tag="adp", value=0.006)
+        recipe.addVar(par, tag="adp", value=REFINE_CONFIG["uiso"])
 
-    recipe.fix("all")
-    recipe.free("scale")
-    fit(recipe, verbose=0)
-    recipe.free("lat")
-    fit(recipe, verbose=0)
-    recipe.free("adp")
-    fit(recipe, verbose=0)
-    recipe.free("delta2")
-    fit(recipe, verbose=0)
-    recipe.free("qdamp", "qbroad")
-    fit(recipe, verbose=0)
+    free_and_fit(recipe, ("scale", "lat"), "adp", "delta2", ("qdamp", "qbroad"), verbose=0)
 
     rw = float(FitResults(recipe).rw)
     base_name = os.path.join(res_dir, file_name_base)
-    csv_file, fgr_file = old_save(recipe, "one_phase", base_name)
+    csv_file, fgr_file = old_save(recipe, "calibration", base_name)
 
+    print(f"Result: Ni fitting (Rw = {rw:.3f})")
     plot(recipe)
-    plt.title(f"Ni fitting (Rw = {rw:.3f})")
-    plt.show()
 
     return rw, csv_file, fgr_file
 
 
-def plot_rw_wl(res_lst: List[dict]) -> None:
+def plot_rw_wl(res_lst: List[dict]):
     """
     Get data from result list and plot the Rw v.s wavelength.
     Parameters
     ----------
     res_lst
         result list of pipe line processing.
-
-    Returns
-    -------
-    None.
     """
     wls = [res["wl"] for res in res_lst]
     rws = [res["Rw"] for res in res_lst]
@@ -225,6 +229,37 @@ def plot_rw_wl(res_lst: List[dict]) -> None:
 
     plt.xlabel(r"wavelength ($\AA$)")
     plt.ylabel(r"Rw of Ni fitting")
+    plt.show()
+    return
 
+
+def visualize(pdfgetter: PDFGetter):
+    """
+    Visualize the results from the pdfgetter.
+
+    Parameters
+    ----------
+    pdfgetter
+        The pdfgetter containing the data after data reduction.
+    """
+    from matplotlib.gridspec import GridSpec
+    grids = GridSpec(2, 2)
+    plt.figure(figsize=(8, 8))
+    data_pairs = (
+        pdfgetter.iq,
+        pdfgetter.sq,
+        pdfgetter.fq,
+        pdfgetter.gr)
+    xylabels = (
+        (r"Q ($\AA^{-1}$)", r"I (A. U.)"),
+        (r"Q ($\AA^{-1}$)", r"S"),
+        (r"Q ($\AA^{-1}$)", r"F ($\AA^{-1}$)"),
+        (r"r ($\AA$)", r"G ($\AA^{-2}$)")
+    )
+    for grid, data_pair, xylabel in zip(grids, data_pairs, xylabels):
+        plt.subplot(grid)
+        plt.plot(*data_pair)
+        plt.xlabel(xylabel[0])
+        plt.ylabel(xylabel[1])
     plt.show()
     return
