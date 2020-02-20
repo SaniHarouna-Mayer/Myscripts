@@ -142,7 +142,7 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool
         q, i = loaddata(moved_chi_file).T
         mask = np.load(mask_file) if os.path.exists(mask_file) else None
         tiff_data = fabio.open(tiff_file).data
-        masked_data = np.ma.array(tiff_data, mask=np.invert(mask), fill_value=np.nan)
+        masked_data = np.ma.array(tiff_data, mask=np.invert(mask), fill_value=np.nan) if mask else tiff_data
         plot_qi_and_mask(q, i, masked_data)
     else:
         pass
@@ -212,22 +212,23 @@ def pyfai_int(poni_file: str, tiff_file: str,
     tiff_data = fabio.open(tiff_file).data
 
     if mask_file:
-        mask_data = np.load(mask_file) == 1  # bool array
+        mask = np.load(mask_file) == 1  # bool array
         if invert_mask:
-            mask_data = np.invert(mask_data)
+            mask = np.invert(mask)
         else:
             pass
     else:
-        mask_data = None
+        mask = None
 
-    q, i = ai.integrate1d(tiff_data - bg_scale * bg_data,
-                          mask=mask_data,
+    tiff_data = tiff_data - bg_scale * bg_data
+    q, i = ai.integrate1d(tiff_data,
+                          mask=mask,
                           filename=xy_file,
                           npt=npt, unit=unit, polarization_factor=polarization, correctSolidAngle=False)
 
     if plot:
-        mask_data_for_plotting = np.invert(mask_data) if mask_data is not None else None
-        plot_qi_and_mask(q, i, mask_data_for_plotting)
+        data_for_plot = np.ma.array(tiff_data, mask=mask, fill_value=np.nan) if mask else tiff_data
+        plot_qi_and_mask(q, i, data_for_plot)
     else:
         pass
 
