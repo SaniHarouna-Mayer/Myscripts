@@ -111,7 +111,7 @@ def calib_wl(tiff_file: str,
     for result in res_gen:
         final_result.update(result)
     dump_result(final_result, json_file)
-    return result_dct
+    return final_result
 
 
 def run_pipe(tiff_file: str,
