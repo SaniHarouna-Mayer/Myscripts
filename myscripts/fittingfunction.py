@@ -293,8 +293,8 @@ def plot(recipe: MyRecipe) -> None:
         plt.plot(r, gcalc, 'r-', label="Calculation")
         plt.plot(r, diff, 'g-', label="Difference")
         plt.plot(r, diffzero, 'k-')
-        plt.xlabel(r"$r (\AA)$")
-        plt.ylabel(r"$G (\AA^{-2})$")
+        plt.xlabel(r"r ($\AA$)")
+        plt.ylabel(r"G ($\AA^{-2}$)")
         plt.legend(loc=1)
         plt.show()
     return
@@ -694,7 +694,7 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
     return variables
 
 
-def free_and_fit(recipe: MyRecipe, *tags: Union[str, Tuple[str]], **kwargs) -> None:
+def free_and_fit(recipe: MyRecipe, *tags: Union[str, Tuple[str, ...]], **kwargs) -> None:
     """
     First fix all variables and then free the variables one by one and fit the recipe.
 
