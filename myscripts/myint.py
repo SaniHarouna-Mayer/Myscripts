@@ -141,7 +141,9 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool
     if plot:
         q, i = loaddata(moved_chi_file).T
         mask = np.load(mask_file) if os.path.exists(mask_file) else None
-        plot_qi_and_mask(q, i, mask)
+        tiff_data = fabio.open(tiff_file).data
+        masked_data = np.ma.array(tiff_data, mask=np.invert(mask), fill_value=np.nan)
+        plot_qi_and_mask(q, i, masked_data)
     else:
         pass
 
@@ -247,7 +249,7 @@ def _invert_mask(mask: str) -> None:
     return
 
 
-def plot_qi_and_mask(q: np.array, i: np.array, mask: Union[None, np.array]):
+def plot_qi_and_mask(q: np.array, i: np.array, masked_data: np.ma.array = None):
     """
     Plot the qi curve and mask image on one figure.
     """
@@ -258,9 +260,11 @@ def plot_qi_and_mask(q: np.array, i: np.array, mask: Union[None, np.array]):
     plt.xlabel(r'Q ($\AA^{-1}$)')
     plt.ylabel(r'I (A. U.)')
 
-    if mask is not None:
+    if masked_data is not None:
         plt.subplot(122)
-        plt.imshow(mask)
+        mean = masked_data.mean()
+        std = masked_data.std()
+        plt.imshow(masked_data, vmin=mean-2*std, vmax=mean+2*std)
     else:
         pass
 
