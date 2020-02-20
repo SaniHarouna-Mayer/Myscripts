@@ -142,7 +142,7 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool
         q, i = loaddata(moved_chi_file).T
         mask = np.load(mask_file) if os.path.exists(mask_file) else None
         tiff_data = fabio.open(tiff_file).data
-        masked_data = np.ma.array(tiff_data, mask=np.invert(mask), fill_value=np.nan) if mask else tiff_data
+        masked_data = np.ma.array(tiff_data, mask=np.invert(mask), fill_value=np.nan) if mask is not None else tiff_data
         plot_qi_and_mask(q, i, masked_data)
     else:
         pass
@@ -227,7 +227,7 @@ def pyfai_int(poni_file: str, tiff_file: str,
                           npt=npt, unit=unit, polarization_factor=polarization, correctSolidAngle=False)
 
     if plot:
-        data_for_plot = np.ma.array(tiff_data, mask=mask, fill_value=np.nan) if mask else tiff_data
+        data_for_plot = np.ma.array(tiff_data, mask=mask, fill_value=np.nan) if mask is not None else tiff_data
         plot_qi_and_mask(q, i, data_for_plot)
     else:
         pass
