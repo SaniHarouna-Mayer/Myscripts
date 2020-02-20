@@ -1,4 +1,5 @@
 import os
+import json
 import matplotlib.pyplot as plt
 from diffpy.srfit.pdf import PDFGenerator
 from diffpy.srfit.fitbase import FitContribution, FitResults
@@ -8,7 +9,7 @@ from myscripts.fittingfunction import *
 from myscripts.fittingclass import *
 from myscripts.yamlmaker import load
 from myscripts.helper import recfind
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Generator
 
 __all__ = ["calib_wl", "run_pipe", "PDFGETTER_CONFIG", "REFINE_CONFIG"]
 
@@ -41,11 +42,14 @@ REFINE_CONFIG = {
 
 def calib_wl(tiff_file: str,
              working_dir: str,
+             json_file: str = "result.json",
              pdfgetter: PDFGetter = None,
              refine_func: Callable = None) -> List[dict]:
     """
-    Calibrate wavelength by integrating data in tiff_file, transforming to G(r) and fit with Ni structure. Results will
-    be plotted out as Rw v.s. wl.
+    Calibrate wavelength by integrating data in tiff_file, transforming to G(r) and fit with calibrant structure.
+    The results will be dumped to a json file and returned as a list of dictionary.
+    It can be visualized by "summarize" (for json) or "plot_rw_wl" (for list).
+
     Parameters
     ----------
     tiff_file
@@ -53,6 +57,8 @@ def calib_wl(tiff_file: str,
     working_dir
         Path to the working directory, which hosts multiple child directories, each of which contains a poni
         file for a wavelength.
+    json_file
+        The file name of the json file of the results. It will be inside the working_dir.
     pdfgetter
         A PDFgetter to transform the chi file to gr file. If None, a default one will be created, see
         make_default_pdfgetter. Default None
@@ -62,7 +68,12 @@ def calib_wl(tiff_file: str,
 
     Returns
     -------
+    result
         A list of dictionary that contains keys: "poni", "chi", "gr", "Rw", "csv", "fgr", "wl".
+
+    Examples
+    --------
+
     """
     child_dirs = []
     for item in os.listdir(working_dir):
@@ -71,14 +82,14 @@ def calib_wl(tiff_file: str,
             child_dirs.append(item_path)
     child_dirs = sorted(child_dirs)
 
-    res_lst = list()
-
-    for child_dir in child_dirs:
-        result = run_pipe(tiff_file, child_dir, pdfgetter=pdfgetter, refine_func=refine_func)
-        res_lst.append(result)
-        print("-" * 100)
-
-    return res_lst
+    res_gen = (
+        run_pipe(tiff_file, child_dir, pdfgetter=pdfgetter, refine_func=refine_func)
+        for child_dir in child_dirs
+    )
+    result = list(res_gen)
+    json_file = os.path.join(working_dir, json_file)
+    dump_result(result, json_file)
+    return result
 
 
 def run_pipe(tiff_file: str,
@@ -88,6 +99,7 @@ def run_pipe(tiff_file: str,
              refine_func: Callable = None) -> dict:
     """
     A pipeline process to integrate, transform and fit the data and return a dictionary of path to the resulting files.
+
     Parameters
     ----------
     tiff_file
@@ -107,6 +119,16 @@ def run_pipe(tiff_file: str,
     -------
     res_dct
         a dictionary that contains keys: "poni", "chi", "gr", "Rw", "csv", "fgr".
+
+    Examples
+    --------
+    Move the poni file "example_poni.poni" into a directory "example".
+    Get the path to a tiff file of the calibrant "example_tiff.tiff".
+    >>> run_pipe("example_tiff.tiff", "example")
+    The program will run the pipeline automatically according to the information in poin file.
+    If user would like to change the settings inside the pipeline, for example,
+    "fit_range" to a range from 0. A to 20. A with 0.01 A as a step.
+    >>> REFINE_CONFIG["fit_range"] = (0., 20., 0.01)
     """
     def find_poni(dir_to_search):
         files_found = recfind(dir_to_search, r".*\.poni")
@@ -213,6 +235,20 @@ def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
     return rw, csv_file, fgr_file
 
 
+def summarize(json_file: str):
+    """
+    Get the result data in json file and plot the Rw as a function of wavelength.
+
+    Parameters
+    ----------
+    json_file
+        The path to the json file of the results.
+    """
+    result = load_result(json_file)
+    plot_rw_wl(result)
+    return
+
+
 def plot_rw_wl(res_lst: List[dict]):
     """
     Get data from result list and plot the Rw v.s wavelength.
@@ -263,3 +299,21 @@ def visualize(pdfgetter: PDFGetter):
         plt.ylabel(xylabel[1])
     plt.show()
     return
+
+
+def load_result(json_file):
+    """Load the result from json file."""
+    with open(json_file, "r") as f:
+        res_lst = json.load(f)
+    return res_lst
+
+
+def dump_result(result, json_file):
+    """Dump the result to a json file."""
+    if os.path.isfile(json_file):
+        os.remove(json_file)
+    with open(json_file, "w+") as f:
+        for dct in result:
+            json.dump(dct, f)
+    return
+
