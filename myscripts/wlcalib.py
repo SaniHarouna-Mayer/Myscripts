@@ -46,8 +46,10 @@ def calib_wl(tiff_file: str,
              pdfgetter: PDFGetter = None,
              refine_func: Callable = None) -> Dict[float, dict]:
     """
-    Calibrate wavelength by integrating data in tiff_file, transforming to G(r) and fit with calibrant structure.
-    The results will be dumped to a json file. It can be visualized by "summarize".
+    Calibrate wavelength by integrating data in tiff_file, transforming to G(r) and fit with calibrant structure. The
+    results will be dumped to a json file. It can be visualized by "summarize". Note: this function will check the
+    json file to see what poni file has been used in pipeline so that it won't do redundant job. If you would like to
+    rerun the whole calibration pipeline. Please delete the json file inside the folder.
 
     Parameters
     ----------
