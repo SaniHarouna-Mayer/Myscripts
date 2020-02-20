@@ -9,9 +9,9 @@ from myscripts.fittingfunction import *
 from myscripts.fittingclass import *
 from myscripts.yamlmaker import load
 from myscripts.helper import recfind
-from typing import Callable, List, Tuple, Generator
+from typing import Callable, Tuple, Dict
 
-__all__ = ["calib_wl", "run_pipe", "PDFGETTER_CONFIG", "REFINE_CONFIG"]
+__all__ = ["calib_wl", "run_pipe", "summarize", "plot_rw_wl", "PDFGETTER_CONFIG", "REFINE_CONFIG"]
 
 XPDTOOLS_CONFIG = {
     "alpha": 2.0
@@ -44,11 +44,10 @@ def calib_wl(tiff_file: str,
              working_dir: str,
              json_file: str = "result.json",
              pdfgetter: PDFGetter = None,
-             refine_func: Callable = None) -> List[dict]:
+             refine_func: Callable = None) -> Dict[float, dict]:
     """
     Calibrate wavelength by integrating data in tiff_file, transforming to G(r) and fit with calibrant structure.
-    The results will be dumped to a json file and returned as a list of dictionary.
-    It can be visualized by "summarize" (for json) or "plot_rw_wl" (for list).
+    The results will be dumped to a json file. It can be visualized by "summarize".
 
     Parameters
     ----------
@@ -68,12 +67,26 @@ def calib_wl(tiff_file: str,
 
     Returns
     -------
-    result
-        A list of dictionary that contains keys: "poni", "chi", "gr", "Rw", "csv", "fgr", "wl".
+    result_dct:
+        A mapping from the wavelength to the result of the pipeline. It is also saved in the json file.
 
     Examples
     --------
-
+    Make a folder "mycalib" as working directory. Make subdirectories in inside and in each subdirectory, copy a poni
+    file into it. So you wil get a file system like the following:
+        mycalib
+            - subdir0
+                - file0.poni
+            - subdir1
+                - file1.poni
+            ...
+    Then, get the path to the tiff file. Here, assuming the path to the tiff file is
+    "tiff_base/mysample/darksub/mytiff.tiff", run the function by
+    >>>  result = calib_wl("tiff_base/mysample/darksub/mytiff.tiff", "mycalib")
+    The calibration will start. After it finishes, use "plot_rw_wl" to visualize the results.
+    >>> plot_rw_wl(result)
+    Or use the "summarize" to visual the result based on the json file "mycalib/result.json".
+    >>> summarize("mycalib/result.json")
     """
     child_dirs = []
     for item in os.listdir(working_dir):
@@ -82,14 +95,23 @@ def calib_wl(tiff_file: str,
             child_dirs.append(item_path)
     child_dirs = sorted(child_dirs)
 
+    json_file = os.path.join(working_dir, json_file)
+    if os.path.isfile(json_file):
+        former_result = load_result(json_file)
+        visited_dirs = [dct.get("directory") for dct in former_result.values()]
+    else:
+        visited_dirs = []
+
+    final_result = {}
     res_gen = (
         run_pipe(tiff_file, child_dir, pdfgetter=pdfgetter, refine_func=refine_func)
         for child_dir in child_dirs
+        if child_dir not in visited_dirs
     )
-    result = list(res_gen)
-    json_file = os.path.join(working_dir, json_file)
-    dump_result(result, json_file)
-    return result
+    for result in res_gen:
+        final_result.update(result)
+    dump_result(final_result, json_file)
+    return result_dct
 
 
 def run_pipe(tiff_file: str,
@@ -117,8 +139,8 @@ def run_pipe(tiff_file: str,
 
     Returns
     -------
-    res_dct
-        a dictionary that contains keys: "poni", "chi", "gr", "Rw", "csv", "fgr".
+    dct
+        a dictionary that mapping the wavelength to a dict containing keys: "poni", "chi", "gr", "Rw", "csv", "fgr".
 
     Examples
     --------
@@ -144,7 +166,7 @@ def run_pipe(tiff_file: str,
     poni_file = poni_file if poni_file else find_poni(saving_dir)
 
     wl = load(poni_file)["Wavelength"] * 1e10  # unit A
-    result = dict(poni=poni_file, wl=wl)
+    result = dict(poni=poni_file, directory=saving_dir)
     print(f"Run pipeline with wavelength: {wl:.4f} and poni file: {poni_file}")
 
     result["chi"], _ = xpdtools_int(poni_file, tiff_file, chi_dir=saving_dir, **XPDTOOLS_CONFIG)
@@ -163,7 +185,8 @@ def run_pipe(tiff_file: str,
         refine_func = default_refine
     result["Rw"], result["csv"], result["fgr"] = refine_func(result["gr"], saving_dir)
 
-    return result
+    dct = {wl: result}
+    return dct
 
 
 def make_default_pdfgetter() -> PDFGetter:
@@ -178,6 +201,7 @@ def make_default_pdfgetter() -> PDFGetter:
 def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
     """
     Refine the G(r) using a default recipe for Ni.
+
     Parameters
     ----------
     gr_file
@@ -249,16 +273,18 @@ def summarize(json_file: str):
     return
 
 
-def plot_rw_wl(res_lst: List[dict]):
+def plot_rw_wl(result_dct: Dict[float, dict]):
     """
     Get data from result list and plot the Rw v.s wavelength.
     Parameters
     ----------
-    res_lst
+    result_dct
         result list of pipe line processing.
     """
-    wls = [res["wl"] for res in res_lst]
-    rws = [res["Rw"] for res in res_lst]
+    wls, rws = [], []
+    for wl, result in sorted(result_dct.items(), key=lambda kv: kv[0]):
+        wls.append(wl)
+        rws.append(result["Rw"])
 
     plt.figure()
     plt.plot(wls, rws, "o-")
@@ -308,12 +334,9 @@ def load_result(json_file):
     return res_lst
 
 
-def dump_result(result, json_file):
+def dump_result(dct, json_file):
     """Dump the result to a json file."""
-    if os.path.isfile(json_file):
-        os.remove(json_file)
     with open(json_file, "w+") as f:
-        for dct in result:
-            json.dump(dct, f)
+        json.dump(dct, f)
     return
 
