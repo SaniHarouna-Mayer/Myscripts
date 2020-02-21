@@ -72,7 +72,7 @@ def check_kwargs(kwargs: dict, options: List[str]) -> None:
 
 # functions for integration
 def pipe_int(poni_file: str, tiff_file: str, chi_dir: str = None, xy_dir: str = None, plot: bool = True,
-             bg_file: str = None, bg_scale: float = None,
+             bg_file: str = None, bg_scale: float = 1.,
              xpdtools_config: dict = None, pyfai_config: dict = None):
     """
     Use the xpdtools to integrate the data and then use the mask it generated to apply to the data and integrate it
