@@ -145,6 +145,10 @@ def pipe_int(poni_file: str, tiff_file: str, chi_dir: str = None, xy_dir: str = 
     xy_file
         Path to xy file. If xy_dir is specified, it will be in the xy_dir.
     """
+    if xpdtools_config is None:
+        xpdtools_config = {}
+    if pyfai_config is None:
+        pyfai_config = {}
     chi_file, mask_file_xpdtool = xpdtools_int(
         poni_file,
         tiff_file,
