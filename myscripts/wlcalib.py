@@ -1,5 +1,6 @@
 import os
 import json
+import numpy as np
 import matplotlib.pyplot as plt
 from diffpy.srfit.pdf import PDFGenerator
 from diffpy.srfit.fitbase import FitContribution, FitResults
@@ -9,9 +10,10 @@ from myscripts.fittingfunction import *
 from myscripts.fittingclass import *
 from myscripts.yamlmaker import load
 from myscripts.helper import recfind
+from matplotlib.gridspec import GridSpec
 from typing import Callable, Tuple, Dict
 
-__all__ = ["calib_wl", "run_pipe", "summarize", "plot_rw_wl", "PDFGETTER_CONFIG", "REFINE_CONFIG"]
+__all__ = ["calib_wl", "run_pipe", "summarize", "plot_rw_wl", "PDFGETTER_CONFIG", "REFINE_CONFIG", "XPDTOOLS_CONFIG"]
 
 XPDTOOLS_CONFIG = {
     "alpha": 2.0
@@ -112,7 +114,7 @@ def calib_wl(tiff_file: str,
     )
     for result in res_gen:
         final_result.update(result)
-    dump_result(final_result, json_file)
+        dump_result(result, json_file)
     return final_result
 
 
@@ -167,7 +169,7 @@ def run_pipe(tiff_file: str,
 
     poni_file = poni_file if poni_file else find_poni(saving_dir)
 
-    wl = load(poni_file)["Wavelength"] * 1e10  # unit A
+    wl = float(load(poni_file)["Wavelength"]) * 1e10  # unit A
     result = dict(poni=poni_file, directory=saving_dir)
     print(f"Run pipeline with wavelength: {wl:.4f} and poni file: {poni_file}")
 
@@ -255,7 +257,7 @@ def default_refine(gr_file: str, res_dir: str) -> Tuple[float, str, str]:
     base_name = os.path.join(res_dir, file_name_base)
     csv_file, fgr_file = old_save(recipe, "calibration", base_name)
 
-    print(f"Result: Ni fitting (Rw = {rw:.3f})")
+    print(f"Result: calibration fitting (Rw = {rw:.3f})")
     plot(recipe)
 
     return rw, csv_file, fgr_file
@@ -285,14 +287,18 @@ def plot_rw_wl(result_dct: Dict[float, dict]):
     """
     wls, rws = [], []
     for wl, result in sorted(result_dct.items(), key=lambda kv: kv[0]):
-        wls.append(wl)
-        rws.append(result["Rw"])
+        wls.append(float(wl))
+        rws.append(float(result["Rw"]))
+    wls = np.array(wls)
+    rws = np.array(rws)
+
+    wl_opt = wls[np.argmin(rws)]
+    print(f"The optimal wavelength is {wl_opt} Angstrom.")
 
     plt.figure()
     plt.plot(wls, rws, "o-")
-
     plt.xlabel(r"wavelength ($\AA$)")
-    plt.ylabel(r"Rw of Ni fitting")
+    plt.ylabel(r"$R_w$")
     plt.show()
     return
 
@@ -306,7 +312,6 @@ def visualize(pdfgetter: PDFGetter):
     pdfgetter
         The pdfgetter containing the data after data reduction.
     """
-    from matplotlib.gridspec import GridSpec
     grids = GridSpec(2, 2)
     plt.figure(figsize=(8, 8))
     data_pairs = (
@@ -329,16 +334,18 @@ def visualize(pdfgetter: PDFGetter):
     return
 
 
-def load_result(json_file):
+def load_result(json_file: str) -> dict:
     """Load the result from json file."""
     with open(json_file, "r") as f:
-        res_lst = json.load(f)
-    return res_lst
+        data = json.load(f)
+    return data
 
 
-def dump_result(dct, json_file):
+def dump_result(dct: dict, json_file: str):
     """Dump the result to a json file."""
-    with open(json_file, "w+") as f:
-        json.dump(dct, f)
+    data = load_result(json_file)
+    data.update(dct)
+    with open(json_file, "w") as f:
+        json.dump(data, f)
     return
 
