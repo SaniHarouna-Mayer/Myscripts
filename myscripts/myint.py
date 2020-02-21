@@ -1,3 +1,4 @@
+"""Integration tools."""
 import os
 import pyFAI
 import fabio
@@ -9,8 +10,15 @@ from typing import Iterable, List, Union, Tuple
 from diffpy.pdfgetx import loaddata
 
 import warnings
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=RuntimeWarning)
+
+__all__ = [
+    "pipe_int",
+    "xpdtools_int",
+    "pyfai_int"
+]
 
 
 # functions for integrations
@@ -63,6 +71,102 @@ def check_kwargs(kwargs: dict, options: List[str]) -> None:
 
 
 # functions for integration
+def pipe_int(poni_file: str, tiff_file: str, chi_dir: str = None, xy_dir: str = None, plot: bool = True,
+             bg_file: str = None, bg_scale: float = None,
+             xpdtools_config: dict = None, pyfai_config: dict = None):
+    """
+    Use the xpdtools to integrate the data and then use the mask it generated to apply to the data and integrate it
+    with the pyfai.
+
+    Parameters
+    ----------
+    poni_file
+        The path to poni file.
+    tiff_file
+        The path to tiff file.
+    chi_dir
+        Move the chi files to chi_dir if chi_dir is not None. Default None.
+    xy_dir
+        Move the xy files to xy_dir if chi_dir is not None. Default None.
+    plot
+        Plot the qi data and mask image or not. Default True.
+    bg_file
+        Background image, if None no background subtraction is performed,
+        defaults to None.
+    bg_scale
+        The scale for the image to image background subtraction, defaults
+        to 1
+    xpdtools_config
+        The configuration for xpdtools_int. The allowed keys:
+        mask_file: str or None, optional
+            Mask file to include in the data processing, if None don't use one,
+            defaults to None.
+        polarization: float, optional
+            The polzarization factor to use, defaults to .99, if None do not
+            perform polarization correction
+        edge: int, optional
+            The number of pixels from the edge to mask with an edge mask,
+            defaults to 20, if None no edge mask used
+        lower_thresh: float, optional
+            Threshold for lower threshold mask, all pixels with value less than
+            this value (after background subtraction if applicable), defaults
+            to 1. if None do not apply lower theshold mask
+        upper_thresh: float, optional
+            Threshold for upper threshold mask, all pixels with value greater
+            than this value (after background subtraction if applicable),
+            defaults to None if None do not apply upper theshold mask
+        alpha: float, optional
+            Number of standard deviations away from the ring mean to mask,
+            defaults to 3. if None do not apply automated masking
+        auto_type : {'median', 'mean'}, optional
+            The type of automasking to use, median is faster, mean is more
+            accurate. Defaults to 'median'.
+        mask_settings: {'auto', 'first', none}, optional
+            If auto mask every image, if first only mask first image, if None
+            mask no images. Defaults to None
+        flip_input_mask: bool, optional
+            If True flip the input mask up down, this helps when using fit2d
+            defaults to True.
+    pyfai_config
+        The configuration for pyfai_int. The allowed keys:
+        npt
+            number of points int the integration. Default 1480.
+        polarization_factor
+            Apply polarization correction. If None: not applies. Default 0.99.
+        correctSolidAngle
+            correct for solid angle. If None: not correct. Default None.
+        method
+            integration method, a string or a registered method. Default "csr".
+
+    Returns
+    -------
+    chi_file
+        Path to the chi file. If chi_dir is specified, it will be in the chi_dir.
+    xy_file
+        Path to xy file. If xy_dir is specified, it will be in the xy_dir.
+    """
+    chi_file, mask_file_xpdtool = xpdtools_int(
+        poni_file,
+        tiff_file,
+        chi_dir,
+        plot=plot,
+        bg_file=bg_file,
+        bg_scale=bg_scale,
+        **xpdtools_config
+    )
+    xy_file = pyfai_int(
+        poni_file,
+        tiff_file,
+        xy_dir,
+        mask_file=mask_file_xpdtool,
+        plot=plot,
+        bg_file=bg_file,
+        bg_scale=bg_scale,
+        **pyfai_config
+    )
+    return chi_file, xy_file
+
+
 def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool = True, **kwargs) -> Tuple[str, str]:
     """
     integrate using xpdtools and save result in chi file.
@@ -79,8 +183,8 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool
     kwargs
         The kwargs arguments to pass to integrate. They are:
         bg_file: str or None, optional
-        Background image, if None no background subtraction is performed,
-        defaults to None.
+            Background image, if None no background subtraction is performed,
+            defaults to None.
         mask_file: str or None, optional
             Mask file to include in the data processing, if None don't use one,
             defaults to None.
@@ -126,7 +230,7 @@ def xpdtools_int(poni_file: str, tiff_file: str, chi_dir: str = None, plot: bool
     mask_file = os.path.splitext(tiff_file)[0] + "_mask.npy"
 
     # move them to chi_dir
-    def move_to_dir():  
+    def move_to_dir():
         chi_file_name = os.path.basename(src_chi_file)
         dst_chi_file = os.path.join(chi_dir, chi_file_name)
         shutil.move(src_chi_file, dst_chi_file)
@@ -181,10 +285,14 @@ def pyfai_int(poni_file: str, tiff_file: str,
         Plot the results of integration or not. The mask will be plotted in a inverted situation. Default True.
     kwargs
         kwargs for ai.integrate1d. The important parameters are:
-        npt: number of points int the integration. Default 1480.
-        polarization_factor: Apply polarization correction. If None: not applies. Default 0.99.
-        correctSolidAngle: correct for solid angle. If None: not correct. Default None.
-        method: integration method, a string or a registered method. Default "csr".
+            npt
+                number of points int the integration. Default 1480.
+            polarization_factor
+                Apply polarization correction. If None: not applies. Default 0.99.
+            correctSolidAngle
+                correct for solid angle. If None: not correct. Default None.
+            method
+                integration method, a string or a registered method. Default "csr".
     Returns
     -------
     xy_file
@@ -265,7 +373,7 @@ def plot_qi_and_mask(q: np.array, i: np.array, masked_data: np.ma.array = None):
         plt.subplot(122)
         mean = masked_data.mean()
         std = masked_data.std()
-        plt.imshow(masked_data, vmin=mean-2*std, vmax=mean+2*std)
+        plt.imshow(masked_data, vmin=mean - 2 * std, vmax=mean + 2 * std)
     else:
         pass
 
