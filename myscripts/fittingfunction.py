@@ -607,11 +607,12 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
     dv
         The path to the .csv file contains the fitting results or the dictionary of values.
         If None, the following values will be used:
-        scale: 0, (0, inf), scale_{gen.name}
-        delta2: 0, (0, 5), delta2_{gen.name}
-        lat: par.value, (par.value +/- 10%), lat_{gen.name}
-        adp: 0.006, (0.001, 0.02), adp_{gen.name}
-        xyz: par.value, (par.value +/- 0.1), xyz_{gen.name}
+        type, initiate value, range, tag
+        scale, 0, (0, inf), scale_{gen.name}
+        delta2, 0, (0, 5), delta2_{gen.name}
+        lat, par.value, (par.value +/- 10%), lat_{gen.name}
+        adp, 0.006, (0.001, 0.02), adp_{gen.name}
+        xyz, par.value, (par.value +/- 0.1), xyz_{gen.name}
     scatterers
         The argument scatters of the constrainAsSpaceGroup. If None, None will be used.
     add_xyz
