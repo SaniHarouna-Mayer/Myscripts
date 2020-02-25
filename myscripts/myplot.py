@@ -1,7 +1,19 @@
 from myscripts.helper import *
+from matplotlib.gridspec import GridSpec
+from pandas.core.groupby import DataFrameGroupBy
+from pandas import DataFrame
 
-
-__all__ = ['compare_data', 'compare_panel', 'plot_gr', 'plot_fgr', 'plot_axfgr', 'plot_panel', 'plot_iq']
+__all__ = [
+    'compare_data',
+    'compare_panel',
+    'plot_gr',
+    'plot_fgr',
+    'plot_axfgr',
+    'plot_panel',
+    'plot_iq',
+    "visualize_fgr",
+    "visualize_par"
+]
 
 
 def compare_data(files=None, rlim=None, names=None, colors=None, normal=False, diff=False):
@@ -608,4 +620,83 @@ def plot_example(files: Union[str, List[str]],
         pass
     # configure axes
     config_ax(ax, rlim, None, r'r ($\AA$)', r'G ($\AA^{-2}$)')
+    return
+
+
+# dataframe based functions
+def visualize_fgr(grouped: DataFrameGroupBy,
+                  figwidth: float = 8.,
+                  figheight: float = 16.,
+                  file_col: str = "fgr_file",
+                  color_col: str = "color",
+                  name_col: str = "sample",
+                  **kwargs: dict):
+    """
+    Visualize the Fitted PDFs according to the information in grouped dataframe.
+    Each group will be drawed in a subplot of waterfall PDFs.
+
+    Parameters
+    ----------
+    grouped
+        A grouped dataframe. It contains the columns fgr_file, color and sample.
+    figwidth
+        The width of the single subplot.
+    figheight
+        The height of the single subplot.
+    file_col
+        The column name for file paths.
+    color_col
+        The column name for the color of the plots.
+    name_col
+        The column name for the annotation of the plots.
+    kwargs
+        The kwargs which will be passed into the plot_fgr.
+    """
+    number = len(grouped)
+    plt.figure(figsize=(figwidth * number, figheight))
+    grids = GridSpec(1, number)
+    for (group_name, group_df), grid in zip(grouped, grids):
+        plt.subplot(grid)
+        plt.title(group_name, loc="left")
+        files = group_df[file_col] if file_col in group_df else []
+        colors = group_df[color_col] if color_col in group_df else None
+        names = group_df[name_col] if name_col in group_df else None
+        plot_fgr(files, colors=colors, names=names, **kwargs)
+    return
+
+
+def visualize_par(df: DataFrame,
+                  x_col: str,
+                  fig_size: Tuple[float, float],
+                  grid_dim: Tuple[int, int],
+                  wspace: float = None,
+                  **kwargs):
+    """
+    Visualize the value of fitting parameters in the data frame. Each fitting paramters are plotted as a function of
+    index inside a subplot.
+
+    Parameters
+    ----------
+    df
+        A data frame. Each column is a fitting parameters and each index is a fit.
+    x_col
+        The column name of the independent variables in the plot.
+    fig_size
+        The width and height of the individual subplot.
+    grid_dim
+        The dimension of the subplot grids.
+    wspace
+        The white space between the grid.
+    kwargs
+        The kwargs which will be passed into the plot.
+    """
+    figsize = (fig_size[0] * grid_dim[0], fig_size[1] * grid_dim[1])
+    plt.figure(figsize=figsize)
+    grids = GridSpec(*grid_dim, wspace=wspace)
+    x_sr = df[x_col]
+    df = df.drop(columns=x_col)
+    for grid, (name, col) in zip(grids, df.iteritems()):
+        plt.subplot(grid)
+        plt.plot(x_sr, col, **kwargs)
+        config_ax(plt.gca(), xlabel=x_col, ylabel=name)
     return
