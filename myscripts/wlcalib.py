@@ -32,7 +32,7 @@ PDFGETTER_CONFIG = {
 }
 
 REFINE_CONFIG = {
-    "fit_range": (1.5, 60., 0.01),
+    "fit_range": (2.3, 60., 0.01),
     "stru_file": os.path.join(os.path.dirname(__file__), "data_files", "Ni.cif"),
     "sgnum": 225,
     "qparams": (0.02, 0.04),
