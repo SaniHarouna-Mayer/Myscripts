@@ -16,6 +16,9 @@ class GenConfig:
         The name of the generator.
     stru_file
         The file path of the structure file.
+    stru_type
+        The type of the structure object for the structure data to be loaded into. Choose from "diffpy" (
+        DiffpyStructure), "crystal" (ObjCrystCrystal), "molecule" (ObjCrystMolecule).
     periodic : bool
         If the structure if periodic. Default if cif or stru, True else False.
     debye : bool
@@ -26,7 +29,7 @@ class GenConfig:
         number of parallel computing cores for the generator. If None, no parallel. Default None.
 
     """
-    def __init__(self, name: str, stru_file: str, **kwargs):
+    def __init__(self, name: str, stru_file: str, stru_type: str = "diffpy", **kwargs):
         """
         Initiate the GenConfig.
 
@@ -36,6 +39,9 @@ class GenConfig:
             The name of the generator.
         stru_file
             The file path of the structure file.
+        stru_type
+            The type of the structure object for the structure data to be loaded into. Choose from "diffpy" (
+            DiffpyStructure), "crystal" (ObjCrystCrystal), "molecule" (ObjCrystMolecule).
         kwargs: (Optional) Keyword arguments to pass to the build_generator functions. They are
             periodic : bool
                 If the structure if periodic. Default if cif or stru, True else False.
@@ -50,6 +56,7 @@ class GenConfig:
         self.check(kwargs)
         self.name = name
         self.stru_file = stru_file
+        self.stru_type = stru_type
         self.periodic = kwargs.get("periodic", self.is_periodic(stru_file))
         self.debye = kwargs.get("debye", not self.periodic)
         self.sg = kwargs.get("sg", self.read_sg(stru_file))
@@ -112,7 +119,7 @@ class GenConfig:
     @staticmethod
     def read_sg(stru_file: str) -> Union[int, str]:
         """
-        Read the spacegroup number from the structure file. If not found, read the spacegroup name. If not found, return
+        Read the space group from the structure file. If not found, return 'P 1'
         1.
 
         Parameters
@@ -124,26 +131,14 @@ class GenConfig:
         -------
         sg : int, str
         """
-        sg_num = None
-        sg_str = None
+        sg = 'P 1'
         with open(stru_file, 'r') as f:
             while True:
                 line = f.readline()
                 if not line:
                     break
-                if '_symmetry_int_tables_number' in line.lower():
-                    sg_num = int(line.split()[1])  # second word converted to int
-                    break
                 if '_symmetry_space_group_name_h-m' in line.lower():
-                    sg_str = line.split()[1].strip('\'\"')  # second word without quotes
-
-        if sg_num:
-            sg = sg_num
-        elif sg_str:
-            sg = sg_str
-        else:
-            sg = 1
-
+                    sg = line.split()[1].strip('\'\"')  # second word without quotes
         return sg
 
 

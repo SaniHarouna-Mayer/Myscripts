@@ -8,7 +8,8 @@ from scipy.optimize import least_squares
 from uuid import uuid4
 from datetime import datetime
 from collections import Counter
-from diffpy.structure import Structure
+from pyobjcryst import loadCrystal
+from pyobjcryst.molecule import Molecule
 from diffpy.srfit.structure.sgconstraints import constrainAsSpaceGroup
 import diffpy.srfit.pdf.characteristicfunctions as characteristicfunctions
 from diffpy.structure import loadStructure
@@ -71,16 +72,28 @@ def make_generator(config: GenConfig) -> Union[PDFGenerator, DebyePDFGenerator]:
 
     """
     name = config.name
-    stru: Structure = loadStructure(config.stru_file)
-    ncpu = config.ncpu
-
     if config.debye:
         generator = DebyePDFGenerator(name)
     else:
         generator = PDFGenerator(name)
 
-    generator.setStructure(stru, periodic=config.periodic)
+    stru_type = config.stru_type
+    stru_file = config.stru_file
+    if stru_type == "diffpy":
+        stru = loadStructure(stru_file)
+    else:
+        stru = loadCrystal(stru_file)
+        if stru_type == "crystal":
+            pass
+        elif stru_type == "molecule":
+            stru = Molecule(stru)
+        else:
+            raise ValueError(f"Unknown stru_type '{stru_type}' in GenConfig '{name}'")
 
+    periodic = config.periodic
+    generator.setStructure(stru, periodic=periodic)
+
+    ncpu = config.ncpu
     if ncpu:
         pool = multiprocessing.Pool(ncpu)
         generator.parallel(ncpu, mapfunc=pool.imap_unordered)
