@@ -10,8 +10,8 @@ Fork and clone this repo. Inside the local repo, run the pip install in the deve
 pip install -e .
 ``
 
-The development mode is suggested because the code is updated throughout my PhD career and my projects used different
-version of the code. For using the older versions of the code, use git to checkout a new branch.
+The development mode is suggested because the code was updated throughout my PhD career and my projects used different
+version of the code. To use the older versions of the code, please git checkout a new branch.
 
 First, fetch all tags.
 
