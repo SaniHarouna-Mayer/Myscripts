@@ -110,6 +110,7 @@ class GenConfig:
         config_dct = {
             'gen_name': self.name,
             'stru_file': self.stru_file,
+            'stru_type': self.stru_type,
             'debye': self.debye,
             'periodic': self.periodic,
             'ncpu': self.ncpu,
