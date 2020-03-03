@@ -403,13 +403,22 @@ def save_cif(generator: Union[PDFGenerator, DebyePDFGenerator], base_name: str, 
     con_name
         name of the contribution that the generators belong to.
     ext
-        extension of the structure file. It will also determine the structure file type. Default "cif".
+        extension of the structure file. It will also determine the structure file type. Default "cif". Only works
+        for diffpy structure.
     Returns
     -------
         the path to the cif or xyz files.
     """
     stru_file = rf"{base_name}_{con_name}_{generator.name}.{ext}"
-    generator.stru.write(stru_file, ext)
+    stru = generator.stru
+    try:
+        stru.write(stru_file, ext)
+    except AttributeError:
+        try:
+            with open(stru_file, "w") as f:
+                stru.CIFOutput(f)
+        except AttributeError:
+            raise Warning("Fail to save the structure.")
     return stru_file
 
 
@@ -558,7 +567,7 @@ def load_default(csv_file: str):
     return default_val_dict
 
 
-def cfconstrain(recipe: MyRecipe, *par_names: str, dv: Dict[str, float] = None, con_name: str = None)\
+def cfconstrain(recipe: MyRecipe, *par_names: str, dv: Dict[str, float] = None, con_name: str = None) \
         -> Dict[str, ParameterProxy]:
     """
     Add parameters in the Characteristic functions in the FitContribution into the MyRecipe.
@@ -598,7 +607,7 @@ def cfconstrain(recipe: MyRecipe, *par_names: str, dv: Dict[str, float] = None, 
 
 
 def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union[int, str] = None,
-                dv: Union[str, Dict[str, float]] = None, scatterers: List = None, add_xyz=False)\
+                dv: Union[str, Dict[str, float]] = None, scatterers: List = None, add_xyz=False) \
         -> Dict[str, ParameterProxy]:
     """
     Constrain the generator by space group. The constrained parameters are scale, delta2, lattice parameters,
@@ -663,6 +672,7 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
         sgpars = gen.phase.sgpars
         print(f"Constrain '{gen.name}' by space group implicitly.")
     elif gen_config.stru_type == "diffpy":
+        sg = gen_config.sg if sg is None else sg
         sgpars = constrainAsSpaceGroup(gen.phase, sg, constrainadps=False, scatterers=scatterers)
         print(f"Constrain '{gen.name}' by space group '{sg}'.")
     else:
@@ -679,7 +689,7 @@ def sgconstrain(recipe: MyRecipe, gen_name: str, con_name: str = None, sg: Union
     adp = {}
     tag = f'adp_{gen.name}'
     var_dct = {
-        "crystal": ("Biso", 0.16, (0.026, 0.52)),
+        "crystal": ("Biso", 0.16, (0.02, 1.0)),
         "diffpy": ("Uiso", 0.006, (0.001, 0.02))
     }
     var_name, init_value, bound_range = var_dct.get(gen_config.stru_type)
