@@ -14,10 +14,13 @@ The development mode is suggested because the code is updated throughout my PhD 
 version of the code. For using the older versions of the code, use git to checkout a new branch.
 
 First, fetch all tags.
+
 ``
 git fetch --all --tags
 ``
+
 Then, checkout a new branch of the older version according to the tag.
+
 ``
 git checkout tags/<tag name> -b <branch name>
 ``
