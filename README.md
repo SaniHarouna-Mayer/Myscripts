@@ -17,3 +17,7 @@ version of the code. For using the older versions of the code, use git to checko
 git fetch --all --tags
 git checkout tags/<tag name> -b <branch name>
 ``
+
+## Examples
+
+Please read the example scripts in the [examples](examples) folder to learn about how to use the tools in myscripts.
